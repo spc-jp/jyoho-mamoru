@@ -479,9 +479,9 @@
 
     // ========== PAYWALL LOGIC ==========
     // ★ WorkerのURLを自分のURLに変更してください
-    const WORKER_URL = 'https://mamoru-auth.yymmatsu.workers.dev/verify';
+    const WORKER_URL = 'https://mamoru-auth.YOUR-SUBDOMAIN.workers.dev/verify';
     // ★ 購入ページURLを設定してください
-    const PURCHASE_URL = 'https://spc-jp.github.io/jyoho-mamoru/';
+    const PURCHASE_URL = 'https://your-purchase-page.com';
 
     const FREE_DEADLINE = new Date('2026-04-01T00:00:00+09:00'); // JST基準
 
@@ -568,7 +568,7 @@
     initPaywall();
     // ========== /PAYWALL LOGIC ==========
 
-    if (typeof pdfjsLib !== 'undefined' {
+    if (typeof pdfjsLib !== 'undefined') {
         pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@2.16.105/build/pdf.worker.min.js';
     }
 
