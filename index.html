@@ -1,0 +1,878 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>情報まもるくん（ローカル高度匿名化版）</title>
+
+    <!-- ★修正1: CDNをjsdelivrに変更（安定性UP）-->
+    <script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@2.16.105/build/pdf.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mammoth@1.8.0/mammoth.browser.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+
+    <style>
+        :root {
+            --primary-color: #3a6fc4;
+            --primary-hover: #2e5aaa;
+            --bg-color: #f0f4fa;
+            --card-bg: #ffffff;
+            --text-main: #2a2a2a;
+            --text-sub: #666666;
+            --border-color: #dde3ed;
+            --input-bg: #f8fafc;
+            --input-focus-bg: #ffffff;
+            --success-color: #2e9e5b;
+            --error-color: #d93025;
+            --shadow: 0 2px 12px rgba(58,111,196,0.08);
+            --radius: 14px;
+            --transition: all 0.2s ease;
+            --drop-zone-bg: #f4f8ff;
+            --drop-zone-border: #b8cef5;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Noto Sans JP", Meiryo, sans-serif; }
+
+        body { background-color: var(--bg-color); color: var(--text-main); line-height: 1.6; display: flex; flex-direction: column; min-height: 100vh; }
+
+        header {
+            background: linear-gradient(135deg, #2a4d9e 0%, #3a6fc4 60%, #5b8bd9 100%);
+            padding: 1rem 2rem;
+            box-shadow: 0 3px 12px rgba(42,77,158,0.25);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        h1 { color: white; font-size: 1.4rem; font-weight: 700; letter-spacing: -0.3px; }
+        .badge { font-size: 0.72rem; background: rgba(255,255,255,0.25); color: white; padding: 3px 10px; border-radius: 20px; vertical-align: middle; margin-left: 8px; }
+        .sub-catch { font-size: 0.85rem; color: rgba(255,255,255,0.82); margin-top: 2px; }
+
+        main { flex: 1; max-width: 1200px; margin: 2rem auto; padding: 0 1rem; display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; width: 100%; }
+        @media (max-width: 768px) { main { grid-template-columns: 1fr; } }
+
+        .card { background: var(--card-bg); border-radius: var(--radius); box-shadow: var(--shadow); padding: 1.5rem; display: flex; flex-direction: column; height: 100%; border: 1px solid rgba(58,111,196,0.08); }
+        .section-title { font-size: 1.05rem; font-weight: 700; margin-bottom: 0.4rem; color: var(--text-main); }
+        .section-desc { font-size: 0.82rem; color: var(--text-sub); margin-bottom: 1rem; }
+
+        .drop-zone {
+            border: 2px dashed var(--drop-zone-border);
+            border-radius: 10px;
+            background-color: var(--drop-zone-bg);
+            padding: 1.2rem 1rem;
+            text-align: center;
+            margin-bottom: 1rem;
+            transition: var(--transition);
+            cursor: pointer;
+            position: relative;
+        }
+        .drop-zone:hover, .drop-zone.dragover { border-color: var(--primary-color); background-color: rgba(58,111,196,0.06); }
+        .drop-zone p { font-size: 0.88rem; color: var(--text-sub); margin-bottom: 0.3rem; }
+        .drop-zone-icon { font-size: 1.8rem; margin-bottom: 0.4rem; display: block; }
+        .drop-zone-sub { font-size: 0.72rem !important; opacity: 0.75; line-height: 1.4; }
+        .drop-zone input[type="file"] { position: absolute; top: 0; left: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
+
+        .upload-spinner { display: none; margin: 0 auto 0.5rem; width: 22px; height: 22px; border: 3px solid var(--border-color); border-top-color: var(--primary-color); border-radius: 50%; animation: spin 0.8s linear infinite; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+        .pdf-settings {
+            display: none;
+            margin-bottom: 1rem;
+            padding: 0.8rem 1rem;
+            background: #f0f5ff;
+            border: 1px solid #c8d9f5;
+            border-radius: 8px;
+        }
+        .pdf-settings p { font-size: 0.82rem; font-weight: 700; margin-bottom: 0.5rem; color: var(--primary-color); }
+        .pdf-settings label { font-size: 0.82rem; cursor: pointer; display: flex; align-items: center; gap: 0.4rem; padding: 4px 0; }
+        .pdf-settings label:hover { color: var(--primary-color); }
+
+        .editor-container { flex-grow: 1; display: flex; flex-direction: column; gap: 0.8rem; min-height: 200px; }
+
+        textarea {
+            width: 100%;
+            padding: 0.9rem;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            font-size: 0.95rem;
+            resize: vertical;
+            background-color: var(--input-bg);
+            color: var(--text-main);
+            transition: var(--transition);
+            flex-grow: 1;
+            min-height: 220px;
+            line-height: 1.7;
+        }
+        textarea:focus { outline: none; border-color: var(--primary-color); background-color: var(--input-focus-bg); box-shadow: 0 0 0 3px rgba(58,111,196,0.12); }
+
+        .rules-section { border-top: 1px solid var(--border-color); padding-top: 0.8rem; margin-top: 0.4rem; }
+        .rules-label { font-size: 0.82rem; font-weight: 600; color: var(--primary-color); margin-bottom: 0.3rem; }
+        .rules-note { font-size: 0.75rem; color: var(--text-sub); margin-bottom: 0.4rem; }
+        #rulesText { min-height: 80px; font-size: 0.88rem; }
+
+        .canvas-container { display: none; width: 100%; flex-direction: column; align-items: center; background-color: var(--input-bg); border: 1px solid var(--border-color); border-radius: 8px; padding: 1rem; position: relative; }
+        #imageCanvas { max-width: 100%; max-height: 400px; border: 1px solid #ccc; cursor: crosshair; background-color: white; box-shadow: 0 2px 4px rgba(0,0,0,0.1); touch-action: none; }
+        .canvas-tools { display: flex; gap: 1rem; margin-top: 0.8rem; width: 100%; justify-content: center; align-items: center; flex-wrap: wrap; }
+        .brush-size { display: flex; align-items: center; gap: 0.5rem; font-size: 0.85rem; color: var(--text-sub); }
+        .brush-size input { width: 100px; }
+
+        .output-area {
+            flex-grow: 1;
+            width: 100%;
+            min-height: 220px;
+            padding: 1rem;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            background-color: #fafcff;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            font-size: 0.95rem;
+            color: var(--text-main);
+            margin-bottom: 1rem;
+            line-height: 1.7;
+        }
+        .image-output { display: none; width: 100%; text-align: center; flex-grow: 1; flex-direction: column; justify-content: flex-start; }
+        .image-output img { max-width: 100%; max-height: 400px; border: 1px solid var(--border-color); border-radius: 4px; object-fit: contain; }
+
+        .btn-group { display: flex; gap: 0.6rem; margin-top: 0.8rem; flex-wrap: wrap; }
+        .btn {
+            padding: 0.75rem 1.1rem;
+            border: none;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: var(--transition);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.4rem;
+            flex: 1;
+            white-space: nowrap;
+        }
+        .btn:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.12); }
+        .btn:active { transform: translateY(0); }
+        .btn-primary { background: linear-gradient(135deg, #3a6fc4, #2a4d9e); color: white; flex: 2; }
+        .btn-secondary { background-color: var(--bg-color); color: var(--text-sub); border: 1px solid var(--border-color); }
+        .btn-success { background: linear-gradient(135deg, #2e9e5b, #1f7840); color: white; }
+        .btn-small { padding: 0.45rem 0.9rem; font-size: 0.82rem; flex: none; }
+
+        .demo-link { margin-top: 8px; font-size: 0.8rem; color: var(--text-sub); }
+        .demo-link a { color: var(--primary-color); text-decoration: none; }
+        .demo-link a:hover { text-decoration: underline; }
+
+        #toast-container { position: fixed; bottom: 20px; right: 20px; z-index: 1000; display: flex; flex-direction: column; gap: 8px; }
+        .toast {
+            background: #1e1e2e;
+            color: white;
+            padding: 10px 18px;
+            border-radius: 8px;
+            font-size: 0.88rem;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            opacity: 0;
+            transform: translateY(10px);
+            animation: toastIn 0.3s forwards;
+            max-width: 300px;
+        }
+        .toast.success { border-left: 4px solid var(--success-color); }
+        .toast.error { border-left: 4px solid var(--error-color); }
+        @keyframes toastIn { to { opacity: 1; transform: translateY(0); } }
+        @keyframes toastOut { to { opacity: 0; transform: translateY(-10px); } }
+
+        .placeholder-text { color: #b0b8c8; font-style: italic; font-size: 0.9rem; }
+
+        .status-bar {
+            margin-top: 0.5rem;
+            padding: 0.5rem 0.8rem;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            display: none;
+        }
+        .status-bar.info { background: #e8f0fe; color: #3a6fc4; display: block; }
+        .status-bar.warn { background: #fff3cd; color: #856404; display: block; }
+
+        footer {
+            text-align: center;
+            padding: 1.2rem;
+            font-size: 0.75rem;
+            color: var(--text-sub);
+            border-top: 1px solid var(--border-color);
+            background: var(--card-bg);
+            margin-top: 1rem;
+        }
+    </style>
+</head>
+<body>
+
+<header>
+    <div>
+        <h1>🛡️ 情報まもるくん <span class="badge">完全ローカル版</span></h1>
+        <p class="sub-catch">士業向け高度匿名化ツール（API通信不要・全ファイル対応）</p>
+    </div>
+</header>
+
+<main>
+    <!-- 入力エリア -->
+    <section>
+        <div class="card">
+            <h2 class="section-title">📄 入力・ファイル読み込み</h2>
+            <p class="section-desc">テキスト入力、またはファイルをドロップしてください。（外部送信一切なし）</p>
+
+            <!-- ドロップゾーン -->
+            <div id="dropZone" class="drop-zone">
+                <div id="uploadSpinner" class="upload-spinner"></div>
+                <span class="drop-zone-icon" id="dropZoneIcon">📎</span>
+                <p id="dropZoneText">クリックまたはファイルをドロップ</p>
+                <p class="drop-zone-sub">対応：画像（.png/.jpg）／ PDF／ Word（.docx）／ Excel（.xlsx）／ テキスト（.txt）</p>
+                <input type="file" id="fileInput" accept=".txt,.md,.png,.jpg,.jpeg,.pdf,.docx,.xlsx">
+            </div>
+
+            <!-- PDF設定（PDFファイル選択時のみ表示） -->
+            <div id="pdfSettings" class="pdf-settings">
+                <p>📄 PDFの読み込みモードを選択：</p>
+                <label><input type="radio" name="pdfMode" value="text" checked> 文字を抽出して匿名化（テキストが埋め込まれたPDF）</label>
+                <label><input type="radio" name="pdfMode" value="image"> 画像として表示してマウスで黒塗り（スキャンPDF向け）</label>
+            </div>
+
+            <div id="statusBar" class="status-bar"></div>
+
+            <div class="editor-container">
+                <!-- テキストモード -->
+                <div id="textModeContainer" style="width: 100%; display: flex; flex-direction: column; flex-grow: 1;">
+                    <textarea id="inputText" placeholder="例：&#13;&#10;2024年4月3日、東京都港区六本木にて、株式会社ABCの山田太郎氏とCRMシステム導入に関する打ち合わせを実施。&#13;&#10;見積金額は12,400,000円。&#13;&#10;連絡先：090-1234-5678"></textarea>
+
+                    <div class="rules-section">
+                        <p class="rules-label">🔒 手動置換ルール（未知の固有名詞を個別に置換）</p>
+                        <p class="rules-note">自動検知できない固有名詞を手動で指定できます。形式：置換前 =&gt; 置換後</p>
+                        <textarea id="rulesText" placeholder="例：&#13;&#10;鈴木一郎 => A氏&#13;&#10;株式会社DEF => 取引先D社&#13;&#10;東京支店 => 某支店"></textarea>
+                    </div>
+                </div>
+
+                <!-- 画像/PDFキャンバスモード -->
+                <div id="canvasModeContainer" class="canvas-container">
+                    <p style="font-size: 0.82rem; margin-bottom: 0.5rem; color: var(--error-color); font-weight: 600;">※ 隠したい部分をマウスでドラッグして黒塗りしてください</p>
+                    <canvas id="imageCanvas"></canvas>
+                    <div class="canvas-tools">
+                        <div class="brush-size">
+                            ペン太さ: <input type="range" id="brushSize" min="5" max="60" value="20">
+                            <span id="brushSizeLabel">20</span>px
+                        </div>
+                        <button class="btn btn-secondary btn-small" onclick="clearCanvasDrawings()">🔄 黒塗りをリセット</button>
+                    </div>
+                    <!-- PDF用ページ送り -->
+                    <div id="pdfPageControls" style="display: none; margin-top: 0.8rem; gap: 1rem; align-items: center; justify-content: center; width: 100%;">
+                        <button class="btn btn-secondary btn-small" onclick="prevPdfPage()">◀ 前へ</button>
+                        <span id="pdfPageInfo" style="font-weight: bold; font-size: 0.9rem;">1 / 1</span>
+                        <button class="btn btn-secondary btn-small" onclick="nextPdfPage()">次へ ▶</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="btn-group">
+                <button class="btn btn-primary" id="btnAction" onclick="handleAction()">
+                    ✨ 匿名化する
+                </button>
+                <button class="btn btn-secondary" onclick="clearAll()">
+                    🗑️ クリア
+                </button>
+            </div>
+            <div class="demo-link" id="demoLinkArea">
+                <a href="#" onclick="loadDemoData(); return false;">▶ デモデータを読み込む</a>
+            </div>
+        </div>
+    </section>
+
+    <!-- 出力エリア -->
+    <section>
+        <div class="card">
+            <h2 class="section-title">🔒 出力（匿名化結果）</h2>
+            <p class="section-desc">ローカル処理のみ。外部サーバーへの送信は一切行いません。</p>
+
+            <!-- テキスト出力 -->
+            <div id="textOutputContainer" style="width: 100%; display: flex; flex-direction: column; flex-grow: 1;">
+                <div class="output-area" id="organizedOutput">
+                    <span class="placeholder-text">左側で匿名化を実行すると、結果がここに表示されます。</span>
+                </div>
+                <div class="btn-group">
+                    <button class="btn btn-secondary" onclick="copyOrganizedText()">📋 コピーする</button>
+                    <button class="btn btn-secondary btn-small" onclick="downloadText()">⬇️ TXT保存</button>
+                </div>
+            </div>
+
+            <!-- 画像出力 -->
+            <div class="image-output" id="imageOutputContainer">
+                <p style="margin-bottom: 0.8rem; color: var(--success-color); font-weight: bold; font-size: 0.95rem;">✅ 黒塗り処理が完了しました</p>
+                <img id="resultImage" alt="マスキングされた画像">
+                <div class="btn-group" style="margin-top: 1rem;">
+                    <button class="btn btn-success" onclick="downloadImage()">⬇️ 画像をダウンロード</button>
+                </div>
+            </div>
+        </div>
+    </section>
+</main>
+
+<footer>
+    情報まもるくん ― ローカル完結処理 | 入力データは外部送信されません | Smile Plus Consulting
+</footer>
+
+<div id="toast-container"></div>
+
+<script>
+    // ★修正2: pdf.js workerSrcをjsdelivrに変更
+    if (typeof pdfjsLib !== 'undefined') {
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@2.16.105/build/pdf.worker.min.js';
+    }
+
+    // --- UI Elements ---
+    const dropZone        = document.getElementById('dropZone');
+    const fileInput       = document.getElementById('fileInput');
+    const dropZoneText    = document.getElementById('dropZoneText');
+    const dropZoneIcon    = document.getElementById('dropZoneIcon');
+    const uploadSpinner   = document.getElementById('uploadSpinner');
+    const pdfSettings     = document.getElementById('pdfSettings');
+    const statusBar       = document.getElementById('statusBar');
+
+    const textModeContainer   = document.getElementById('textModeContainer');
+    const canvasModeContainer = document.getElementById('canvasModeContainer');
+    const inputText           = document.getElementById('inputText');
+    const btnAction           = document.getElementById('btnAction');
+    const demoLinkArea        = document.getElementById('demoLinkArea');
+
+    const textOutputContainer  = document.getElementById('textOutputContainer');
+    const organizedOutput      = document.getElementById('organizedOutput');
+    const imageOutputContainer = document.getElementById('imageOutputContainer');
+    const resultImage          = document.getElementById('resultImage');
+
+    const brushSizeInput = document.getElementById('brushSize');
+    const brushSizeLabel = document.getElementById('brushSizeLabel');
+
+    brushSizeInput.addEventListener('input', () => { brushSizeLabel.textContent = brushSizeInput.value; });
+
+    // --- State ---
+    let currentMode = 'text';
+    const canvas = document.getElementById('imageCanvas');
+    const ctx    = canvas.getContext('2d');
+    let isDrawing    = false;
+    let originalImage = null;
+    let currentPdfDoc  = null;
+    let currentPdfPageNum = 1;
+    let totalPdfPages  = 1;
+
+    // --- ライブラリ読み込み確認 ---
+    function checkLib(name) {
+        const libs = { pdf: typeof pdfjsLib !== 'undefined', mammoth: typeof mammoth !== 'undefined', xlsx: typeof XLSX !== 'undefined' };
+        if (!libs[name]) {
+            showToast(`${name}ライブラリが読み込まれていません。ネット接続を確認してください。`, 'error');
+            return false;
+        }
+        return true;
+    }
+
+    // --- File Upload ---
+    dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('dragover'); });
+    dropZone.addEventListener('dragleave', () => { dropZone.classList.remove('dragover'); });
+    dropZone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        dropZone.classList.remove('dragover');
+        if (e.dataTransfer.files.length > 0) handleFile(e.dataTransfer.files[0]);
+    });
+    fileInput.addEventListener('change', () => {
+        if (fileInput.files.length > 0) handleFile(fileInput.files[0]);
+        fileInput.value = '';
+    });
+
+    async function handleFile(file) {
+        const fileName = file.name.toLowerCase();
+        const fileType = file.type;
+
+        // PDFのみ設定パネルを表示
+        pdfSettings.style.display = (fileName.endsWith('.pdf') || fileType === 'application/pdf') ? 'block' : 'none';
+
+        uploadSpinner.style.display = 'block';
+        dropZoneText.innerText = '読み込み中...';
+        dropZoneIcon.textContent = '⏳';
+        showStatus('ファイルを解析中です。しばらくお待ちください...', 'info');
+
+        try {
+            if (fileType.startsWith('image/')) {
+                loadImageToCanvas(file);
+
+            } else if (fileType === 'text/plain' || fileName.endsWith('.md') || fileName.endsWith('.txt')) {
+                const reader = new FileReader();
+                reader.onload = (e) => finishTextLoad(e.target.result, 'テキストファイル');
+                reader.onerror = () => { showToast('テキストファイルの読み込みに失敗しました', 'error'); resetDropZone(); };
+                reader.readAsText(file, 'UTF-8');
+
+            } else if (fileName.endsWith('.pdf') || fileType === 'application/pdf') {
+                if (!checkLib('pdf')) { resetDropZone(); return; }
+                const pdfMode = document.querySelector('input[name="pdfMode"]:checked').value;
+                if (pdfMode === 'text') {
+                    const text = await extractTextFromPDF(file);
+                    finishTextLoad(text, 'PDF');
+                } else {
+                    await loadPDFToCanvas(file);
+                }
+
+            } else if (fileName.endsWith('.docx') || fileType.includes('wordprocessingml')) {
+                if (!checkLib('mammoth')) { resetDropZone(); return; }
+                const text = await extractTextFromWord(file);
+                finishTextLoad(text, 'Wordファイル');
+
+            } else if (fileName.endsWith('.xlsx') || fileName.endsWith('.xls') || fileType.includes('spreadsheetml')) {
+                if (!checkLib('xlsx')) { resetDropZone(); return; }
+                const text = await extractTextFromExcel(file);
+                finishTextLoad(text, 'Excelファイル');
+
+            } else {
+                throw new Error(`未対応のファイル形式です：${file.name}`);
+            }
+
+        } catch (error) {
+            console.error('ファイル読み込みエラー:', error);
+            showToast(error.message || 'ファイルの読み込みに失敗しました', 'error');
+            resetDropZone();
+            hideStatus();
+        }
+    }
+
+    function finishTextLoad(text, typeName) {
+        if (!text || !text.trim()) {
+            showToast(`${typeName}からテキストを抽出できませんでした（空または画像のみのPDFかもしれません）`, 'error');
+            resetDropZone();
+            hideStatus();
+            return;
+        }
+        setMode('text');
+        inputText.value = text;
+        showToast(`✅ ${typeName}のテキストを読み込みました（${text.length}文字）`, 'success');
+        showStatus(`${typeName}から ${text.length} 文字を読み込みました。「匿名化する」ボタンを押してください。`, 'info');
+        resetDropZone();
+    }
+
+    function resetDropZone() {
+        uploadSpinner.style.display = 'none';
+        dropZoneText.innerText = 'クリックまたはファイルをドロップ';
+        dropZoneIcon.textContent = '📎';
+    }
+
+    function showStatus(msg, type) {
+        statusBar.textContent = msg;
+        statusBar.className = `status-bar ${type}`;
+    }
+    function hideStatus() {
+        statusBar.style.display = 'none';
+    }
+
+    // --- Extractors ---
+    async function extractTextFromWord(file) {
+        const arrayBuffer = await file.arrayBuffer();
+        const result = await mammoth.extractRawText({ arrayBuffer });
+        if (!result.value) throw new Error('Wordファイルからテキストを読み取れませんでした');
+        return result.value;
+    }
+
+    async function extractTextFromExcel(file) {
+        const arrayBuffer = await file.arrayBuffer();
+        const workbook = XLSX.read(arrayBuffer, { type: 'array' });
+        let fullText = '';
+        workbook.SheetNames.forEach(sheetName => {
+            const worksheet = workbook.Sheets[sheetName];
+            const csv = XLSX.utils.sheet_to_csv(worksheet);
+            if (csv.trim()) fullText += `\n--- シート：${sheetName} ---\n${csv}\n`;
+        });
+        if (!fullText.trim()) throw new Error('Excelファイルからデータを読み取れませんでした');
+        return fullText;
+    }
+
+    async function extractTextFromPDF(file) {
+        const arrayBuffer = await file.arrayBuffer();
+        // ★修正3: エラーハンドリングを強化
+        let pdf;
+        try {
+            pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+        } catch (e) {
+            throw new Error('PDFの読み込みに失敗しました。パスワード保護されていないか確認してください。');
+        }
+        let fullText = '';
+        for (let i = 1; i <= pdf.numPages; i++) {
+            const page = await pdf.getPage(i);
+            const textContent = await page.getTextContent();
+            const pageText = textContent.items.map(item => item.str).join(' ');
+            if (pageText.trim()) fullText += `--- ${i}ページ ---\n${pageText}\n\n`;
+        }
+        if (!fullText.trim()) throw new Error('このPDFからはテキストを抽出できません。スキャンPDFの場合は「画像で表示」モードをお試しください。');
+        return fullText;
+    }
+
+    // --- PDF Canvas ---
+    async function loadPDFToCanvas(file) {
+        const arrayBuffer = await file.arrayBuffer();
+        try {
+            currentPdfDoc = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+        } catch (e) {
+            throw new Error('PDFの読み込みに失敗しました');
+        }
+        totalPdfPages = currentPdfDoc.numPages;
+        currentPdfPageNum = 1;
+        setMode('image', true);
+        await renderPdfPage(currentPdfPageNum);
+        resetDropZone();
+        hideStatus();
+        showToast('PDFを読み込みました。マウスで黒塗りできます。', 'success');
+    }
+
+    async function renderPdfPage(pageNum) {
+        const page = await currentPdfDoc.getPage(pageNum);
+        const viewport = page.getViewport({ scale: 1.5 });
+        const maxWidth = canvasModeContainer.clientWidth - 32 || 600;
+        const scale = Math.min(maxWidth / viewport.width, 1);
+        const scaledViewport = page.getViewport({ scale: viewport.scale * scale });
+
+        canvas.width  = scaledViewport.width;
+        canvas.height = scaledViewport.height;
+
+        await page.render({ canvasContext: ctx, viewport: scaledViewport }).promise;
+
+        originalImage = new Image();
+        originalImage.src = canvas.toDataURL();
+        document.getElementById('pdfPageInfo').innerText = `${currentPdfPageNum} / ${totalPdfPages}`;
+    }
+
+    async function prevPdfPage() { if (currentPdfPageNum > 1) { currentPdfPageNum--; await renderPdfPage(currentPdfPageNum); } }
+    async function nextPdfPage() { if (currentPdfPageNum < totalPdfPages) { currentPdfPageNum++; await renderPdfPage(currentPdfPageNum); } }
+
+    // --- Canvas Drawing ---
+    function loadImageToCanvas(file) {
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            const img = new Image();
+            img.onload = () => {
+                const maxWidth = canvasModeContainer.clientWidth - 32 || 600;
+                let w = img.width, h = img.height;
+                if (w > maxWidth) { h = Math.round(h * maxWidth / w); w = maxWidth; }
+                canvas.width = w;
+                canvas.height = h;
+                originalImage = img;
+                ctx.drawImage(img, 0, 0, w, h);
+                setMode('image', false);
+                resetDropZone();
+                hideStatus();
+                showToast('画像を読み込みました。ドラッグで黒塗りできます。', 'success');
+            };
+            img.onerror = () => { showToast('画像の読み込みに失敗しました', 'error'); resetDropZone(); };
+            img.src = event.target.result;
+        };
+        reader.onerror = () => { showToast('ファイルの読み込みに失敗しました', 'error'); resetDropZone(); };
+        reader.readAsDataURL(file);
+    }
+
+    function clearCanvasDrawings() {
+        if (originalImage) {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.drawImage(originalImage, 0, 0, canvas.width, canvas.height);
+            showToast('黒塗りをリセットしました', 'success');
+        }
+    }
+
+    function getPos(evt) {
+        const rect = canvas.getBoundingClientRect();
+        const scaleX = canvas.width / rect.width;
+        const scaleY = canvas.height / rect.height;
+        const src = evt.touches ? evt.touches[0] : evt;
+        return { x: (src.clientX - rect.left) * scaleX, y: (src.clientY - rect.top) * scaleY };
+    }
+
+    function startDrawing(e) {
+        isDrawing = true;
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+        const p = getPos(e);
+        ctx.beginPath();
+        ctx.moveTo(p.x, p.y);
+    }
+
+    function draw(e) {
+        if (!isDrawing) return;
+        e.preventDefault();
+        const p = getPos(e);
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+        ctx.lineWidth  = brushSizeInput.value;
+        ctx.lineCap    = 'round';
+        ctx.lineJoin   = 'round';
+        ctx.strokeStyle = '#000000';
+        ctx.lineTo(p.x, p.y);
+        ctx.stroke();
+    }
+
+    function stopDrawing() { isDrawing = false; ctx.beginPath(); }
+
+    canvas.addEventListener('mousedown',  startDrawing);
+    canvas.addEventListener('mousemove',  draw);
+    canvas.addEventListener('mouseup',    stopDrawing);
+    canvas.addEventListener('mouseleave', stopDrawing);
+    canvas.addEventListener('touchstart', startDrawing, { passive: false });
+    canvas.addEventListener('touchmove',  draw,         { passive: false });
+    canvas.addEventListener('touchend',   stopDrawing);
+
+    // --- Mode Control ---
+    function setMode(mode, isPdf = false) {
+        currentMode = mode;
+        if (mode === 'image') {
+            textModeContainer.style.display      = 'none';
+            canvasModeContainer.style.display    = 'flex';
+            textOutputContainer.style.display    = 'none';
+            imageOutputContainer.style.display   = 'none';
+            btnAction.textContent                = '🖌️ 黒塗りを確定する';
+            demoLinkArea.style.display           = 'none';
+            document.getElementById('pdfPageControls').style.display = isPdf ? 'flex' : 'none';
+        } else {
+            textModeContainer.style.display      = 'flex';
+            canvasModeContainer.style.display    = 'none';
+            textOutputContainer.style.display    = 'flex';
+            imageOutputContainer.style.display   = 'none';
+            btnAction.textContent                = '✨ 匿名化する';
+            demoLinkArea.style.display           = 'block';
+        }
+    }
+
+    function handleAction() {
+        if (currentMode === 'text') executeTextAnonymization();
+        else executeImageAnonymization();
+    }
+
+    function clearAll() {
+        inputText.value = '';
+        document.getElementById('rulesText').value = '';
+        organizedOutput.innerHTML = '<span class="placeholder-text">左側で匿名化を実行すると、結果がここに表示されます。</span>';
+        pdfSettings.style.display = 'none';
+        setMode('text');
+        hideStatus();
+        showToast('クリアしました');
+    }
+
+    // --- Anonymization ---
+    let personCounter = 0, companyCounter = 0;
+    let personMap = {}, companyMap = {};
+
+    function getPersonSymbol(name) {
+        if (!personMap[name]) { personMap[name] = String.fromCharCode(65 + (personCounter % 26)) + '氏'; personCounter++; }
+        return personMap[name];
+    }
+    function getCompanySymbol(name) {
+        if (!companyMap[name]) { companyMap[name] = String.fromCharCode(65 + (companyCounter % 26)) + '社'; companyCounter++; }
+        return companyMap[name];
+    }
+
+    function anonymizeText(text) {
+        personCounter = 0; companyCounter = 0; personMap = {}; companyMap = {};
+        let result = text;
+
+        // 手動ルール優先適用
+        const rulesElem = document.getElementById('rulesText');
+        if (rulesElem && rulesElem.value.trim()) {
+            rulesElem.value.split(/\n/).forEach(line => {
+                const sep = line.includes('=>') ? '=>' : line.includes('->') ? '->' : null;
+                if (!sep) return;
+                const parts = line.split(sep);
+                if (parts.length < 2) return;
+                const target = parts[0].trim();
+                const replacement = parts.slice(1).join(sep).trim();
+                if (target && replacement) {
+                    result = result.replace(new RegExp(target.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'), replacement);
+                }
+            });
+        }
+
+        result = anonymizeSpecificCompanies(result);
+        result = anonymizeTransactions(result);
+        result = anonymizeTitles(result);
+        result = anonymizeAddresses(result);
+        result = anonymizeDates(result);
+        result = anonymizeAmounts(result);
+        result = anonymizeNumbers(result);
+        result = anonymizeNamesAndCompanies(result);
+        return result;
+    }
+
+    function anonymizeNamesAndCompanies(text) {
+        const persons = ['山田太郎', '佐藤花子', '田中次郎', '鈴木三郎'];
+        persons.forEach(n => { text = text.replace(new RegExp(n, 'g'), getPersonSymbol(n)); });
+        text = text.replace(/(?:株式会社|有限会社|合同会社|一般社団法人|一般財団法人|\(株\)|（株）|㈱)\s*([一-龠ぁ-んァ-ヶa-zA-Z0-9ー・]+)/g, (m, n) => getCompanySymbol(n));
+        text = text.replace(/([一-龠ぁ-んァ-ヶa-zA-Z0-9ー・]+)\s*(?:株式会社|有限会社|合同会社|\(株\)|（株）|㈱)/g, (m, n) => getCompanySymbol(n));
+        text = text.replace(/([一-龠ァ-ヶ]{2,5})(氏|様|さん|殿|弁護士|司法書士|税理士|社労士|先生|社長|部長|課長|係長)/g, (m, name, title) => {
+            if (name.includes('会社') || name.includes('法人') || /[A-Z]/.test(name)) return m;
+            return getPersonSymbol(name);
+        });
+        return text;
+    }
+
+    function anonymizeAddresses(text) {
+        text = text
+            .replace(/東京都港区六本木/g, '東京都内')
+            .replace(/大阪市北区/g, '大阪市内')
+            .replace(/名古屋市中区/g, '東海地方')
+            .replace(/札幌市中央区/g, '北海道主要都市')
+            .replace(/渋谷区/g, '都内')
+            .replace(/新宿駅周辺/g, '都内ターミナル駅周辺');
+
+        const prefs = '北海道|青森県|岩手県|宮城県|秋田県|山形県|福島県|茨城県|栃木県|群馬県|埼玉県|千葉県|東京都|神奈川県|新潟県|富山県|石川県|福井県|山梨県|長野県|岐阜県|静岡県|愛知県|三重県|滋賀県|京都府|大阪府|兵庫県|奈良県|和歌山県|鳥取県|島根県|岡山県|広島県|山口県|徳島県|香川県|愛媛県|高知県|福岡県|佐賀県|長崎県|熊本県|大分県|宮崎県|鹿児島県|沖縄県';
+        text = text.replace(new RegExp(`(${prefs})[一-龠ぁ-んァ-ヶ]+[区市町村][一-龠\\d\\-０-９ー]+`, 'g'), (m, pref) => {
+            if (pref === '東京都') return '東京都内';
+            if (pref === '北海道') return '北海道内';
+            return pref + '内';
+        });
+        text = text.replace(/([一-龠ぁ-んァ-ヶa-zA-Z0-9]+)駅周辺/g, '市内駅周辺');
+        return text;
+    }
+
+    function anonymizeSpecificCompanies(text) {
+        const map = { '楽天株式会社': '大手IT企業A社', 'トヨタ自動車': '大手自動車メーカーB社', 'みずほ銀行': '某金融機関', '三菱UFJ銀行': '某金融機関', '株式会社ABC': 'A社', '株式会社DEF': 'B社' };
+        for (const [k, v] of Object.entries(map)) text = text.replace(new RegExp(k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'), v);
+        return text;
+    }
+
+    function anonymizeAmounts(text) {
+        const toHalf = s => s ? s.replace(/[０-９]/g, c => String.fromCharCode(c.charCodeAt(0) - 0xFEE0)).replace(/[,，\s]/g, '') : '0';
+        text = text.replace(/([0-9０-９,，]+)万[円¥]/g, (m, p) => {
+            const n = parseInt(toHalf(p), 10);
+            return isNaN(n) ? m : `約${n}万円`;
+        });
+        return text.replace(/([0-9０-９,，]+)[円¥]/g, (m, p) => {
+            const n = parseInt(toHalf(p), 10);
+            if (isNaN(n)) return m;
+            if (n >= 10000000) return `約${Math.round(n / 1000000) * 100}万円`;
+            if (n >= 1000000)  return `約${Math.round(n / 100000) * 10}万円`;
+            if (n >= 10000)    return `約${Math.round(n / 10000)}万円`;
+            return `約${Math.round(n / 1000) * 1000}円`;
+        });
+    }
+
+    function anonymizeDates(text) {
+        const toHalf = s => s ? s.replace(/[０-９]/g, c => String.fromCharCode(c.charCodeAt(0) - 0xFEE0)) : '0';
+        text = text.replace(/([0-9０-９]{4})[年\/／]([0-9０-９]{1,2})[月\/／]([0-9０-９]{1,2})日?/g, (m, y, mo) => {
+            const month = parseInt(toHalf(mo), 10);
+            if (month >= 3 && month <= 5) return `${toHalf(y)}年春頃`;
+            if (month >= 6 && month <= 8) return `${toHalf(y)}年夏頃`;
+            if (month >= 9 && month <= 11) return `${toHalf(y)}年秋頃`;
+            return `${toHalf(y)}年冬頃`;
+        });
+        return text.replace(/([0-9０-９]{4})[年\/／]([0-9０-９]{1,2})月/g, (m, y) => `${toHalf(y)}年中頃`);
+    }
+
+    function anonymizeTitles(text) {
+        const map = { '代表取締役社長': '代表者', '代表取締役': '代表者', '専務取締役': '役員', '常務取締役': '役員', '経理部長': '管理職', '人事部長': '管理職', '人事部課長': '人事担当者', '営業部長': '営業管理職' };
+        for (const [k, v] of Object.entries(map)) text = text.replace(new RegExp(k, 'g'), v);
+        return text;
+    }
+
+    function anonymizeTransactions(text) {
+        const map = { 'Salesforce導入': 'CRMシステム導入', 'Salesforce': 'CRMシステム', '半導体製造装置売買': '設備売買契約', '広告代理店契約': 'マーケティング業務契約', 'IT導入補助金': '補助金' };
+        for (const [k, v] of Object.entries(map)) text = text.replace(new RegExp(k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'), v);
+        return text;
+    }
+
+    function anonymizeNumbers(text) {
+        // 電話番号
+        text = text.replace(/(\d{2,4})[-ー－](\d{2,4})[-ー－](\d{3,4})/g, (m, p1) => `${p1}-XXXX-XXXX`);
+        // 携帯番号（090/080/070）
+        text = text.replace(/0[789]0[-ー－]\d{4}[-ー－]\d{4}/g, '0X0-XXXX-XXXX');
+        // 口座番号
+        text = text.replace(/口座番号([0-9０-９]+)/g, (m, n) => '口座番号XXXX' + n.slice(-3));
+        // 契約番号
+        text = text.replace(/契約番号([A-Za-z]+)([0-9０-９]+)/g, (m, p) => `契約番号${p}XXXXXX`);
+        // 郵便番号
+        text = text.replace(/〒?\d{3}-\d{4}/g, '〒XXX-XXXX');
+        // マイナンバー風12桁
+        text = text.replace(/\b\d{12}\b/g, 'XXXXXXXXXXXX');
+        return text;
+    }
+
+    // --- Actions ---
+    function executeTextAnonymization() {
+        const text = inputText.value;
+        if (!text.trim()) { showToast('テキストを入力してください', 'error'); return; }
+        const result = anonymizeText(text);
+        organizedOutput.innerText = result;
+        organizedOutput.style.color = 'var(--text-main)';
+        showToast('✅ 匿名化が完了しました', 'success');
+        showStatus(`匿名化完了。右のエリアから内容をコピーまたはダウンロードしてください。`, 'info');
+    }
+
+    function executeImageAnonymization() {
+        const dataUrl = canvas.toDataURL('image/png');
+        textOutputContainer.style.display  = 'none';
+        imageOutputContainer.style.display = 'flex';
+        resultImage.src = dataUrl;
+        showToast('✅ 黒塗り処理が完了しました', 'success');
+    }
+
+    // --- Utilities ---
+    function copyOrganizedText() {
+        const text = organizedOutput.innerText;
+        if (!text || organizedOutput.querySelector('.placeholder-text')) { showToast('コピーする内容がありません', 'error'); return; }
+        if (navigator.clipboard && window.isSecureContext) {
+            navigator.clipboard.writeText(text).then(() => showToast('コピーしました ✅')).catch(() => fallbackCopy(text));
+        } else { fallbackCopy(text); }
+    }
+
+    function fallbackCopy(text) {
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        ta.style.cssText = 'position:fixed;left:-9999px;top:0';
+        document.body.appendChild(ta);
+        ta.focus(); ta.select();
+        try { document.execCommand('copy') ? showToast('コピーしました ✅') : showToast('コピーに失敗しました', 'error'); }
+        catch { showToast('コピーに失敗しました', 'error'); }
+        document.body.removeChild(ta);
+    }
+
+    function downloadText() {
+        const text = organizedOutput.innerText;
+        if (!text || organizedOutput.querySelector('.placeholder-text')) { showToast('ダウンロードする内容がありません', 'error'); return; }
+        const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url; a.download = '匿名化済み_' + new Date().toISOString().slice(0,10) + '.txt';
+        a.click();
+        URL.revokeObjectURL(url);
+        showToast('テキストをダウンロードしました');
+    }
+
+    function downloadImage() {
+        const a = document.createElement('a');
+        a.download = '黒塗り済み_' + new Date().toISOString().slice(0,10) + '.png';
+        a.href = resultImage.src;
+        a.click();
+        showToast('画像をダウンロードしました');
+    }
+
+    function showToast(message, type = 'success') {
+        const c = document.getElementById('toast-container');
+        const t = document.createElement('div');
+        t.className = `toast ${type}`;
+        t.innerHTML = `<span>${type === 'success' ? '✅' : '⚠️'}</span><span>${message}</span>`;
+        c.appendChild(t);
+        setTimeout(() => {
+            t.style.animation = 'toastOut 0.3s forwards';
+            setTimeout(() => { if (c.contains(t)) c.removeChild(t); }, 300);
+        }, 3500);
+    }
+
+    function loadDemoData() {
+        inputText.value = `以下の内容をご確認ください。
+
+個人情報：山田太郎、佐藤花子
+会社名：株式会社ABC
+提携先：楽天株式会社、トヨタ自動車、みずほ銀行
+住所：東京都港区六本木1-2-3、大阪市北区梅田4-5
+最寄り駅：新宿駅周辺
+金額：1,234,000円、12,400,000円、98,000円
+日付：2024年4月3日、2023年12月15日
+役職：代表取締役、経理部長、人事部課長
+取引：Salesforce導入、半導体製造装置売買
+番号：090-1234-5678、口座番号1234567、契約番号AB123456、〒107-0052`;
+        showToast('デモデータを読み込みました');
+        showStatus('「匿名化する」ボタンを押してテスト実行できます。', 'info');
+    }
+</script>
+</body>
+</html>
