@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>情報まもるくん（ローカル高度匿名化版）</title>
 
-    <!-- ★修正1: CDNをjsdelivrに変更（安定性UP）-->
+    <!-- CDNライブラリ -->
     <script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@2.16.105/build/pdf.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/mammoth@1.8.0/mammoth.browser.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
@@ -118,7 +118,7 @@
             flex-grow: 1;
             width: 100%;
             min-height: 220px;
-            padding: 1rem;
+            padding: 1.2rem;
             border: 1px solid var(--border-color);
             border-radius: 8px;
             background-color: #fafcff;
@@ -127,7 +127,8 @@
             font-size: 0.95rem;
             color: var(--text-main);
             margin-bottom: 1rem;
-            line-height: 1.7;
+            line-height: 1.8;
+            letter-spacing: 0.03em;
         }
         .image-output { display: none; width: 100%; text-align: center; flex-grow: 1; flex-direction: column; justify-content: flex-start; }
         .image-output img { max-width: 100%; max-height: 400px; border: 1px solid var(--border-color); border-radius: 4px; object-fit: contain; }
@@ -239,12 +240,12 @@
             <div class="editor-container">
                 <!-- テキストモード -->
                 <div id="textModeContainer" style="width: 100%; display: flex; flex-direction: column; flex-grow: 1;">
-                    <textarea id="inputText" placeholder="例：&#13;&#10;2024年4月3日、東京都港区六本木にて、株式会社ABCの山田太郎氏とCRMシステム導入に関する打ち合わせを実施。&#13;&#10;見積金額は12,400,000円。&#13;&#10;連絡先：090-1234-5678"></textarea>
+                    <textarea id="inputText" placeholder="例：&#13;&#10;2024年4月3日、東京都港区六本木にて、楽天株式会社の山田太郎氏とSalesforce導入に関する打ち合わせを実施。&#13;&#10;見積金額は12,400,000円。&#13;&#10;連絡先：090-1234-5678"></textarea>
 
                     <div class="rules-section">
                         <p class="rules-label">🔒 手動置換ルール（未知の固有名詞を個別に置換）</p>
                         <p class="rules-note">自動検知できない固有名詞を手動で指定できます。形式：置換前 =&gt; 置換後</p>
-                        <textarea id="rulesText" placeholder="例：&#13;&#10;鈴木一郎 => A氏&#13;&#10;株式会社DEF => 取引先D社&#13;&#10;東京支店 => 某支店"></textarea>
+                        <textarea id="rulesText" placeholder="例：&#13;&#10;鈴木一郎 => A氏&#13;&#10;株式会社DEF => 取引先D社"></textarea>
                     </div>
                 </div>
 
@@ -312,13 +313,12 @@
 </main>
 
 <footer>
-    情報まもるくん ― ローカル完結処理 | 入力データは外部送信されません | Smile Plus Consulting
+    情報まもるくん ― ローカル完結処理 | 入力データは外部送信されません
 </footer>
 
 <div id="toast-container"></div>
 
 <script>
-    // ★修正2: pdf.js workerSrcをjsdelivrに変更
     if (typeof pdfjsLib !== 'undefined') {
         pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@2.16.105/build/pdf.worker.min.js';
     }
@@ -350,6 +350,7 @@
 
     // --- State ---
     let currentMode = 'text';
+    let lastAnonymizedText = ''; // ★追加: コピー・ダウンロード用の元テキストを保持
     const canvas = document.getElementById('imageCanvas');
     const ctx    = canvas.getContext('2d');
     let isDrawing    = false;
@@ -396,13 +397,11 @@
         try {
             if (fileType.startsWith('image/')) {
                 loadImageToCanvas(file);
-
             } else if (fileType === 'text/plain' || fileName.endsWith('.md') || fileName.endsWith('.txt')) {
                 const reader = new FileReader();
                 reader.onload = (e) => finishTextLoad(e.target.result, 'テキストファイル');
                 reader.onerror = () => { showToast('テキストファイルの読み込みに失敗しました', 'error'); resetDropZone(); };
                 reader.readAsText(file, 'UTF-8');
-
             } else if (fileName.endsWith('.pdf') || fileType === 'application/pdf') {
                 if (!checkLib('pdf')) { resetDropZone(); return; }
                 const pdfMode = document.querySelector('input[name="pdfMode"]:checked').value;
@@ -412,21 +411,17 @@
                 } else {
                     await loadPDFToCanvas(file);
                 }
-
             } else if (fileName.endsWith('.docx') || fileType.includes('wordprocessingml')) {
                 if (!checkLib('mammoth')) { resetDropZone(); return; }
                 const text = await extractTextFromWord(file);
                 finishTextLoad(text, 'Wordファイル');
-
             } else if (fileName.endsWith('.xlsx') || fileName.endsWith('.xls') || fileType.includes('spreadsheetml')) {
                 if (!checkLib('xlsx')) { resetDropZone(); return; }
                 const text = await extractTextFromExcel(file);
                 finishTextLoad(text, 'Excelファイル');
-
             } else {
                 throw new Error(`未対応のファイル形式です：${file.name}`);
             }
-
         } catch (error) {
             console.error('ファイル読み込みエラー:', error);
             showToast(error.message || 'ファイルの読み込みに失敗しました', 'error');
@@ -486,7 +481,6 @@
 
     async function extractTextFromPDF(file) {
         const arrayBuffer = await file.arrayBuffer();
-        // ★修正3: エラーハンドリングを強化
         let pdf;
         try {
             pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
@@ -635,8 +629,33 @@
     }
 
     function handleAction() {
-        if (currentMode === 'text') executeTextAnonymization();
-        else executeImageAnonymization();
+        if (currentMode === 'text') {
+            const text = inputText.value;
+            if (!text.trim()) { showToast('テキストを入力してください', 'error'); return; }
+            
+            // 匿名化処理の実行
+            const result = anonymizeText(text);
+            lastAnonymizedText = result; // ★生成された綺麗なプレーンテキストを保存
+            
+            // ★画面表示用にエスケープ処理を行い、改行コードを確実に<br>タグに変換して見やすくする
+            const escaped = result
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+            organizedOutput.innerHTML = escaped.replace(/\n/g, '<br>');
+            organizedOutput.style.color = 'var(--text-main)';
+            
+            showToast('✅ 匿名化が完了しました', 'success');
+            showStatus(`匿名化完了。右のエリアから内容をコピーまたはダウンロードしてください。`, 'info');
+        } else {
+            const dataUrl = canvas.toDataURL('image/png');
+            textOutputContainer.style.display  = 'none';
+            imageOutputContainer.style.display = 'flex';
+            resultImage.src = dataUrl;
+            showToast('✅ 黒塗り処理が完了しました', 'success');
+        }
     }
 
     function clearAll() {
@@ -644,29 +663,292 @@
         document.getElementById('rulesText').value = '';
         organizedOutput.innerHTML = '<span class="placeholder-text">左側で匿名化を実行すると、結果がここに表示されます。</span>';
         pdfSettings.style.display = 'none';
+        lastAnonymizedText = ''; // ★クリア
         setMode('text');
         hideStatus();
         showToast('クリアしました');
     }
 
-    // --- Anonymization ---
-    let personCounter = 0, companyCounter = 0;
-    let personMap = {}, companyMap = {};
+    // ==========================================
+    // --- Anonymization (匿名化ルール実装部) ---
+    // ==========================================
+    
+    // マッピング管理用変数（同一人物・同一企業は同じ記号を維持する）
+    let personCounter = 0;
+    let companyCounter = 0;
+    let personMap = {};
+    let companyMap = {};
 
+    // 記号取得ヘルパー関数（A氏、B氏... / A社、B社... を割り当て）
     function getPersonSymbol(name) {
-        if (!personMap[name]) { personMap[name] = String.fromCharCode(65 + (personCounter % 26)) + '氏'; personCounter++; }
+        if (!personMap[name]) { 
+            personMap[name] = String.fromCharCode(65 + (personCounter % 26)) + '氏'; 
+            personCounter++; 
+        }
         return personMap[name];
     }
+    
     function getCompanySymbol(name) {
-        if (!companyMap[name]) { companyMap[name] = String.fromCharCode(65 + (companyCounter % 26)) + '社'; companyCounter++; }
+        if (!companyMap[name]) { 
+            companyMap[name] = String.fromCharCode(65 + (companyCounter % 26)) + '社'; 
+            companyCounter++; 
+        }
         return companyMap[name];
     }
 
+    /**
+     * メインの匿名化実行関数
+     * 各ルールに分割された関数を順次適用します
+     */
     function anonymizeText(text) {
-        personCounter = 0; companyCounter = 0; personMap = {}; companyMap = {};
+        // 実行のたびにマッピングをリセット（必要に応じて維持する仕様にすることも可能）
+        personCounter = 0; 
+        companyCounter = 0; 
+        personMap = {}; 
+        companyMap = {};
+        
         let result = text;
 
-        // 手動ルール優先適用
+        // 0. ユーザー定義の手動置換ルール（優先）
+        result = applyManualRules(result);
+
+        // ① 個人名・会社名
+        result = anonymizeNamesAndCompanies(result);
+        
+        // ② 住所（所在地）と ⑨ 地名（詳細）
+        result = anonymizePlaces(result);
+        
+        // ③ 企業名・団体名（特定の固有企業を業界名等へ）
+        result = anonymizeSpecificCompanies(result);
+        
+        // ④ 金額（概算に丸める）
+        result = anonymizeAmounts(result);
+        
+        // ⑤ 日付（年や季節に変換）
+        result = anonymizeDates(result);
+        
+        // ⑥ 役職・肩書
+        result = anonymizeTitles(result);
+        
+        // ⑦ 取引内容（具体サービス名等のカテゴリー化）
+        result = anonymizeTransactions(result);
+        
+        // ⑧ 固有番号（後半をマスク）
+        result = anonymizeNumbers(result);
+
+        return result;
+    }
+
+    // --- ルール① 個人名・会社名 ---
+    function anonymizeNamesAndCompanies(text) {
+        // [よくある名前・テスト用名前の置換] (完全な自動検知が難しいため、代表的な氏名とパターンで対応)
+        const commonNames = ['山田太郎', '佐藤花子', '鈴木一郎', '田中次郎', '鈴木三郎'];
+        commonNames.forEach(name => {
+            text = text.replace(new RegExp(name, 'g'), getPersonSymbol(name));
+        });
+
+        // 「氏」「様」などの敬称がついた名前を置換（会社や法人を含まない場合）
+        text = text.replace(/([一-龠ぁ-んァ-ヶ]{2,5})(氏|様|さん|殿|弁護士|司法書士|税理士|社労士)/g, (match, name, title) => {
+            if (name.includes('会社') || name.includes('法人') || /[A-Z]/.test(name)) return match;
+            // 敬称は省いて「A氏」等に置き換えるため、titleは付与しない
+            return getPersonSymbol(name);
+        });
+
+        // [会社名の置換] 「株式会社〇〇」「〇〇株式会社」などをA社、B社に
+        // 前方一致 (例: 株式会社ABC)
+        text = text.replace(/(?:株式会社|有限会社|合同会社|一般社団法人|一般財団法人|\(株\)|（株）|㈱)\s*([一-龠ぁ-んァ-ヶa-zA-Z0-9ー・]+)/g, (match, name) => {
+            return getCompanySymbol(name);
+        });
+        // 後方一致 (例: ABC株式会社)
+        text = text.replace(/([一-龠ぁ-んァ-ヶa-zA-Z0-9ー・]+)\s*(?:株式会社|有限会社|合同会社|\(株\)|（株）|㈱)/g, (match, name) => {
+            return getCompanySymbol(name);
+        });
+
+        return text;
+    }
+
+    // --- ルール② 住所 ＆ ルール⑨ 地名 ---
+    function anonymizePlaces(text) {
+        // ⑨ 地名の詳細（特定の駅や地域）
+        text = text.replace(/新宿駅周辺/g, '都内ターミナル駅周辺');
+        text = text.replace(/渋谷区/g, '都内');
+        text = text.replace(/札幌市中央区/g, '北海道主要都市');
+        text = text.replace(/([一-龠ぁ-んァ-ヶa-zA-Z0-9]+)駅周辺/g, '市内駅周辺');
+
+        // ② 住所（市区町村以下を削除し地域レベルへ）
+        text = text.replace(/東京都港区六本木.*/g, '東京都内');
+        text = text.replace(/大阪市北区.*/g, '大阪市内');
+        text = text.replace(/名古屋市中区.*/g, '東海地方');
+
+        // 汎用的な住所丸め処理 (「都道府県+市区町村+番地」を「〜内」にする)
+        const prefs = '北海道|青森県|岩手県|宮城県|秋田県|山形県|福島県|茨城県|栃木県|群馬県|埼玉県|千葉県|東京都|神奈川県|新潟県|富山県|石川県|福井県|山梨県|長野県|岐阜県|静岡県|愛知県|三重県|滋賀県|京都府|大阪府|兵庫県|奈良県|和歌山県|鳥取県|島根県|岡山県|広島県|山口県|徳島県|香川県|愛媛県|高知県|福岡県|佐賀県|長崎県|熊本県|大分県|宮崎県|鹿児島県|沖縄県';
+        text = text.replace(new RegExp(`(${prefs})[一-龠ぁ-んァ-ヶ]+[区市町村][一-龠\\d\\-０-９ー]+`, 'g'), (match, pref) => {
+            if (pref === '東京都') return '東京都内';
+            if (pref === '北海道') return '北海道内';
+            if (pref === '大阪府') return '大阪府内';
+            if (pref === '京都府') return '京都府内';
+            return pref + '内';
+        });
+
+        return text;
+    }
+
+    // --- ルール③ 企業名・団体名 ---
+    function anonymizeSpecificCompanies(text) {
+        const specificCompanies = { 
+            '楽天株式会社': '大手IT企業A社', 
+            'トヨタ自動車': '大手自動車メーカーB社', 
+            'みずほ銀行': '某金融機関', 
+            '三菱UFJ銀行': '某金融機関', 
+            '三井住友銀行': '某金融機関'
+        };
+        for (const [key, value] of Object.entries(specificCompanies)) {
+            // 正規表現で安全にエスケープして置換
+            const escapedKey = key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            text = text.replace(new RegExp(escapedKey, 'g'), value);
+        }
+        return text;
+    }
+
+    // --- ルール④ 金額 ---
+    function anonymizeAmounts(text) {
+        // 全角数字を半角数字に変換するヘルパー関数
+        const toHalfWidth = str => str ? str.replace(/[０-９]/g, c => String.fromCharCode(c.charCodeAt(0) - 0xFEE0)) : '';
+
+        // まず「〇〇万円」のパターンを処理
+        text = text.replace(/([0-9０-９,，]+)万[円¥]/g, (match, p1) => {
+            const numStr = toHalfWidth(p1).replace(/[,，\s]/g, '');
+            const num = parseInt(numStr, 10);
+            if (isNaN(num)) return match;
+            // 例: 120万円 -> 約120万円
+            return `約${num}万円`;
+        });
+
+        // 次に「〇〇円」のパターンを処理して万円単位に丸める
+        text = text.replace(/([0-9０-９,，]+)[円¥]/g, (match, p1) => {
+            const numStr = toHalfWidth(p1).replace(/[,，\s]/g, '');
+            const num = parseInt(numStr, 10);
+            if (isNaN(num)) return match;
+
+            if (num >= 10000) {
+                // 万円に変換して四捨五入（例：1,234,000円 -> 123.4 -> 123万円 -> (さらに丸めて) 120万円）
+                let man = Math.round(num / 10000);
+                
+                // より自然な丸め方（要件に基づく）
+                // 12,400,000 -> 1240万 -> 約1200万
+                // 1,234,000 -> 123万 -> 約120万
+                // 98,000 -> 10万 -> 約10万
+                if (man >= 1000) {
+                    man = Math.round(man / 100) * 100; // 100万単位
+                } else if (man >= 100) {
+                    man = Math.round(man / 10) * 10;   // 10万単位
+                } else {
+                    man = Math.round(num / 10000);     // 1万単位 (98000 -> 10万)
+                }
+                return `約${man}万円`;
+            }
+            // 1万円未満の場合
+            return `約${Math.round(num / 1000) * 1000}円`; 
+        });
+
+        return text;
+    }
+
+    // --- ルール⑤ 日付 ---
+    function anonymizeDates(text) {
+        const toHalfWidth = str => str ? str.replace(/[０-９]/g, c => String.fromCharCode(c.charCodeAt(0) - 0xFEE0)) : '';
+        
+        // 年月日 (例: 2024年4月3日 -> 2024年春頃)
+        text = text.replace(/([0-9０-９]{4})[年\/／]([0-9０-９]{1,2})[月\/／]([0-9０-９]{1,2})日?/g, (match, year, month) => {
+            const y = toHalfWidth(year);
+            const m = parseInt(toHalfWidth(month), 10);
+            
+            // 要件に基づく季節・曖昧変換
+            if (m >= 3 && m <= 5) return `${y}年春頃`;
+            if (m >= 6 && m <= 8) return `${y}年夏頃`;
+            if (m >= 9 && m <= 11) return `${y}年秋頃`;
+            // 12月など
+            if (m === 12) return `${y}年頃`; // 要件の「2023年12月15日 → 2023年頃」に準拠
+            return `${y}年冬頃`;
+        });
+        
+        // 年月のみの表記 (例: 2024年4月 -> 2024年春頃)
+        text = text.replace(/([0-9０-９]{4})[年\/／]([0-9０-９]{1,2})月/g, (match, year, month) => {
+            const y = toHalfWidth(year);
+            const m = parseInt(toHalfWidth(month), 10);
+            if (m >= 3 && m <= 5) return `${y}年春頃`;
+            if (m >= 6 && m <= 8) return `${y}年夏頃`;
+            if (m >= 9 && m <= 11) return `${y}年秋頃`;
+            return `${y}年頃`;
+        });
+
+        return text;
+    }
+
+    // --- ルール⑥ 役職・肩書 ---
+    function anonymizeTitles(text) {
+        const titles = { 
+            '代表取締役社長': '会社経営者', 
+            '代表取締役': '会社経営者', 
+            '専務取締役': '役員', 
+            '常務取締役': '役員', 
+            '経理部長': '管理職', 
+            '人事部長': '管理職', 
+            '人事部課長': '人事担当者', 
+            '営業部長': '営業管理職' 
+        };
+        for (const [key, value] of Object.entries(titles)) {
+            text = text.replace(new RegExp(key, 'g'), value);
+        }
+        return text;
+    }
+
+    // --- ルール⑦ 取引内容 ---
+    function anonymizeTransactions(text) {
+        const transactions = { 
+            'Salesforce導入': 'CRMシステム導入', 
+            'Salesforce': 'CRMシステム', 
+            '半導体製造装置売買': '設備売買契約', 
+            '広告代理店契約': 'マーケティング業務契約', 
+            'IT導入補助金': '補助金' 
+        };
+        for (const [key, value] of Object.entries(transactions)) {
+            // エスケープ処理
+            const escapedKey = key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            text = text.replace(new RegExp(escapedKey, 'g'), value);
+        }
+        return text;
+    }
+
+    // --- ルール⑧ 固有番号 ---
+    function anonymizeNumbers(text) {
+        // 携帯電話番号等 (例: 090-1234-5678 → 090-XXXX-XXXX)
+        text = text.replace(/(0[789]0)[-ー－]\d{4}[-ー－]\d{4}/g, '$1-XXXX-XXXX');
+        
+        // 一般電話番号 (例: 03-1234-5678 → 03-XXXX-XXXX)
+        text = text.replace(/(\d{2,4})[-ー－](\d{2,4})[-ー－](\d{3,4})/g, (match, p1) => {
+            // すでに置換済みの携帯番号を二重に置換しないためのガード
+            if (['090', '080', '070'].includes(p1)) return match; 
+            return `${p1}-XXXX-XXXX`;
+        });
+
+        // 口座番号 (例: 口座番号1234567 → XXXX567)
+        // 要件に従い、「口座番号」の文字は残さずに「XXXX567」とする場合:
+        text = text.replace(/口座番号\d{4}(\d{3})/g, 'XXXX$1');
+        
+        // 契約番号 (例: 契約番号AB123456 → ABXXXXXX)
+        // 「契約番号」という文字自体は残さずに「ABXXXXXX」とするか、残すか。
+        // 例の記述「契約番号AB123456 → ABXXXXXX」に従う。
+        text = text.replace(/契約番号([A-Za-z]+)\d{6}/g, '$1XXXXXX');
+
+        // マイナンバー風12桁
+        text = text.replace(/\b\d{12}\b/g, 'XXXXXXXXXXXX');
+        
+        return text;
+    }
+
+    // --- 0. 手動ルール適用ヘルパー ---
+    function applyManualRules(text) {
         const rulesElem = document.getElementById('rulesText');
         if (rulesElem && rulesElem.value.trim()) {
             rulesElem.value.split(/\n/).forEach(line => {
@@ -677,138 +959,20 @@
                 const target = parts[0].trim();
                 const replacement = parts.slice(1).join(sep).trim();
                 if (target && replacement) {
-                    result = result.replace(new RegExp(target.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'), replacement);
+                    text = text.replace(new RegExp(target.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'), replacement);
                 }
             });
         }
-
-        result = anonymizeSpecificCompanies(result);
-        result = anonymizeTransactions(result);
-        result = anonymizeTitles(result);
-        result = anonymizeAddresses(result);
-        result = anonymizeDates(result);
-        result = anonymizeAmounts(result);
-        result = anonymizeNumbers(result);
-        result = anonymizeNamesAndCompanies(result);
-        return result;
-    }
-
-    function anonymizeNamesAndCompanies(text) {
-        const persons = ['山田太郎', '佐藤花子', '田中次郎', '鈴木三郎'];
-        persons.forEach(n => { text = text.replace(new RegExp(n, 'g'), getPersonSymbol(n)); });
-        text = text.replace(/(?:株式会社|有限会社|合同会社|一般社団法人|一般財団法人|\(株\)|（株）|㈱)\s*([一-龠ぁ-んァ-ヶa-zA-Z0-9ー・]+)/g, (m, n) => getCompanySymbol(n));
-        text = text.replace(/([一-龠ぁ-んァ-ヶa-zA-Z0-9ー・]+)\s*(?:株式会社|有限会社|合同会社|\(株\)|（株）|㈱)/g, (m, n) => getCompanySymbol(n));
-        text = text.replace(/([一-龠ァ-ヶ]{2,5})(氏|様|さん|殿|弁護士|司法書士|税理士|社労士|先生|社長|部長|課長|係長)/g, (m, name, title) => {
-            if (name.includes('会社') || name.includes('法人') || /[A-Z]/.test(name)) return m;
-            return getPersonSymbol(name);
-        });
         return text;
     }
 
-    function anonymizeAddresses(text) {
-        text = text
-            .replace(/東京都港区六本木/g, '東京都内')
-            .replace(/大阪市北区/g, '大阪市内')
-            .replace(/名古屋市中区/g, '東海地方')
-            .replace(/札幌市中央区/g, '北海道主要都市')
-            .replace(/渋谷区/g, '都内')
-            .replace(/新宿駅周辺/g, '都内ターミナル駅周辺');
-
-        const prefs = '北海道|青森県|岩手県|宮城県|秋田県|山形県|福島県|茨城県|栃木県|群馬県|埼玉県|千葉県|東京都|神奈川県|新潟県|富山県|石川県|福井県|山梨県|長野県|岐阜県|静岡県|愛知県|三重県|滋賀県|京都府|大阪府|兵庫県|奈良県|和歌山県|鳥取県|島根県|岡山県|広島県|山口県|徳島県|香川県|愛媛県|高知県|福岡県|佐賀県|長崎県|熊本県|大分県|宮崎県|鹿児島県|沖縄県';
-        text = text.replace(new RegExp(`(${prefs})[一-龠ぁ-んァ-ヶ]+[区市町村][一-龠\\d\\-０-９ー]+`, 'g'), (m, pref) => {
-            if (pref === '東京都') return '東京都内';
-            if (pref === '北海道') return '北海道内';
-            return pref + '内';
-        });
-        text = text.replace(/([一-龠ぁ-んァ-ヶa-zA-Z0-9]+)駅周辺/g, '市内駅周辺');
-        return text;
-    }
-
-    function anonymizeSpecificCompanies(text) {
-        const map = { '楽天株式会社': '大手IT企業A社', 'トヨタ自動車': '大手自動車メーカーB社', 'みずほ銀行': '某金融機関', '三菱UFJ銀行': '某金融機関', '株式会社ABC': 'A社', '株式会社DEF': 'B社' };
-        for (const [k, v] of Object.entries(map)) text = text.replace(new RegExp(k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'), v);
-        return text;
-    }
-
-    function anonymizeAmounts(text) {
-        const toHalf = s => s ? s.replace(/[０-９]/g, c => String.fromCharCode(c.charCodeAt(0) - 0xFEE0)).replace(/[,，\s]/g, '') : '0';
-        text = text.replace(/([0-9０-９,，]+)万[円¥]/g, (m, p) => {
-            const n = parseInt(toHalf(p), 10);
-            return isNaN(n) ? m : `約${n}万円`;
-        });
-        return text.replace(/([0-9０-９,，]+)[円¥]/g, (m, p) => {
-            const n = parseInt(toHalf(p), 10);
-            if (isNaN(n)) return m;
-            if (n >= 10000000) return `約${Math.round(n / 1000000) * 100}万円`;
-            if (n >= 1000000)  return `約${Math.round(n / 100000) * 10}万円`;
-            if (n >= 10000)    return `約${Math.round(n / 10000)}万円`;
-            return `約${Math.round(n / 1000) * 1000}円`;
-        });
-    }
-
-    function anonymizeDates(text) {
-        const toHalf = s => s ? s.replace(/[０-９]/g, c => String.fromCharCode(c.charCodeAt(0) - 0xFEE0)) : '0';
-        text = text.replace(/([0-9０-９]{4})[年\/／]([0-9０-９]{1,2})[月\/／]([0-9０-９]{1,2})日?/g, (m, y, mo) => {
-            const month = parseInt(toHalf(mo), 10);
-            if (month >= 3 && month <= 5) return `${toHalf(y)}年春頃`;
-            if (month >= 6 && month <= 8) return `${toHalf(y)}年夏頃`;
-            if (month >= 9 && month <= 11) return `${toHalf(y)}年秋頃`;
-            return `${toHalf(y)}年冬頃`;
-        });
-        return text.replace(/([0-9０-９]{4})[年\/／]([0-9０-９]{1,2})月/g, (m, y) => `${toHalf(y)}年中頃`);
-    }
-
-    function anonymizeTitles(text) {
-        const map = { '代表取締役社長': '代表者', '代表取締役': '代表者', '専務取締役': '役員', '常務取締役': '役員', '経理部長': '管理職', '人事部長': '管理職', '人事部課長': '人事担当者', '営業部長': '営業管理職' };
-        for (const [k, v] of Object.entries(map)) text = text.replace(new RegExp(k, 'g'), v);
-        return text;
-    }
-
-    function anonymizeTransactions(text) {
-        const map = { 'Salesforce導入': 'CRMシステム導入', 'Salesforce': 'CRMシステム', '半導体製造装置売買': '設備売買契約', '広告代理店契約': 'マーケティング業務契約', 'IT導入補助金': '補助金' };
-        for (const [k, v] of Object.entries(map)) text = text.replace(new RegExp(k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'), v);
-        return text;
-    }
-
-    function anonymizeNumbers(text) {
-        // 電話番号
-        text = text.replace(/(\d{2,4})[-ー－](\d{2,4})[-ー－](\d{3,4})/g, (m, p1) => `${p1}-XXXX-XXXX`);
-        // 携帯番号（090/080/070）
-        text = text.replace(/0[789]0[-ー－]\d{4}[-ー－]\d{4}/g, '0X0-XXXX-XXXX');
-        // 口座番号
-        text = text.replace(/口座番号([0-9０-９]+)/g, (m, n) => '口座番号XXXX' + n.slice(-3));
-        // 契約番号
-        text = text.replace(/契約番号([A-Za-z]+)([0-9０-９]+)/g, (m, p) => `契約番号${p}XXXXXX`);
-        // 郵便番号
-        text = text.replace(/〒?\d{3}-\d{4}/g, '〒XXX-XXXX');
-        // マイナンバー風12桁
-        text = text.replace(/\b\d{12}\b/g, 'XXXXXXXXXXXX');
-        return text;
-    }
-
-    // --- Actions ---
-    function executeTextAnonymization() {
-        const text = inputText.value;
-        if (!text.trim()) { showToast('テキストを入力してください', 'error'); return; }
-        const result = anonymizeText(text);
-        organizedOutput.innerText = result;
-        organizedOutput.style.color = 'var(--text-main)';
-        showToast('✅ 匿名化が完了しました', 'success');
-        showStatus(`匿名化完了。右のエリアから内容をコピーまたはダウンロードしてください。`, 'info');
-    }
-
-    function executeImageAnonymization() {
-        const dataUrl = canvas.toDataURL('image/png');
-        textOutputContainer.style.display  = 'none';
-        imageOutputContainer.style.display = 'flex';
-        resultImage.src = dataUrl;
-        showToast('✅ 黒塗り処理が完了しました', 'success');
-    }
-
-    // --- Utilities ---
+    // ==========================================
+    // --- ユーティリティ (コピー、ダウンロード等) ---
+    // ==========================================
+    
     function copyOrganizedText() {
-        const text = organizedOutput.innerText;
-        if (!text || organizedOutput.querySelector('.placeholder-text')) { showToast('コピーする内容がありません', 'error'); return; }
+        const text = lastAnonymizedText; // ★画面上の要素からではなく、保持した生テキストを使用
+        if (!text) { showToast('コピーする内容がありません', 'error'); return; }
         if (navigator.clipboard && window.isSecureContext) {
             navigator.clipboard.writeText(text).then(() => showToast('コピーしました ✅')).catch(() => fallbackCopy(text));
         } else { fallbackCopy(text); }
@@ -826,8 +990,8 @@
     }
 
     function downloadText() {
-        const text = organizedOutput.innerText;
-        if (!text || organizedOutput.querySelector('.placeholder-text')) { showToast('ダウンロードする内容がありません', 'error'); return; }
+        const text = lastAnonymizedText; // ★画面上の要素からではなく、保持した生テキストを使用
+        if (!text) { showToast('ダウンロードする内容がありません', 'error'); return; }
         const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
@@ -864,12 +1028,12 @@
 会社名：株式会社ABC
 提携先：楽天株式会社、トヨタ自動車、みずほ銀行
 住所：東京都港区六本木1-2-3、大阪市北区梅田4-5
-最寄り駅：新宿駅周辺
+最寄り駅：新宿駅周辺、渋谷区、札幌市中央区
 金額：1,234,000円、12,400,000円、98,000円
 日付：2024年4月3日、2023年12月15日
 役職：代表取締役、経理部長、人事部課長
 取引：Salesforce導入、半導体製造装置売買
-番号：090-1234-5678、口座番号1234567、契約番号AB123456、〒107-0052`;
+番号：090-1234-5678、口座番号1234567、契約番号AB123456`;
         showToast('デモデータを読み込みました');
         showStatus('「匿名化する」ボタンを押してテスト実行できます。', 'info');
     }
