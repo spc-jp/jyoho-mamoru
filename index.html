@@ -244,6 +244,81 @@
         .modal-body p { font-size: 0.9rem; line-height: 1.6; color: var(--text-main); }
         .modal-body ul { padding-left: 1.5rem; font-size: 0.9rem; color: var(--text-main); margin-top: 0.5rem; }
         .modal-body li { margin-bottom: 0.5rem; line-height: 1.6; }
+
+        /* ========== PAYWALL ========== */
+        #paywallOverlay {
+            display: none;
+            position: fixed; inset: 0; z-index: 9999;
+            background: linear-gradient(135deg, #1a2e5a 0%, #2a4d9e 50%, #1a3a7a 100%);
+            align-items: center; justify-content: center;
+        }
+        #paywallOverlay.active { display: flex; }
+        .paywall-box {
+            background: #fff;
+            border-radius: 20px;
+            padding: 2.5rem 2rem;
+            max-width: 420px;
+            width: 90%;
+            text-align: center;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.4);
+            animation: pwIn 0.4s cubic-bezier(0.34,1.56,0.64,1) forwards;
+        }
+        @keyframes pwIn { from { opacity:0; transform:scale(0.85) translateY(20px); } to { opacity:1; transform:scale(1) translateY(0); } }
+        .paywall-icon { font-size: 3rem; margin-bottom: 0.5rem; display: block; }
+        .paywall-box h2 { font-size: 1.4rem; color: #1a2e5a; margin-bottom: 0.3rem; font-weight: 800; }
+        .paywall-box .pw-price { font-size: 2rem; font-weight: 800; color: #3a6fc4; margin: 0.4rem 0; }
+        .paywall-box .pw-price small { font-size: 0.9rem; color: #888; font-weight: 400; }
+        .paywall-box p { font-size: 0.88rem; color: #666; margin-bottom: 1.2rem; line-height: 1.6; }
+        .paywall-input-wrap { position: relative; margin-bottom: 1rem; }
+        .paywall-input-wrap input {
+            width: 100%;
+            padding: 0.9rem 3rem 0.9rem 1rem;
+            border: 2px solid #dde3ed;
+            border-radius: 10px;
+            font-size: 1.1rem;
+            text-align: center;
+            letter-spacing: 0.15em;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+        .paywall-input-wrap input:focus { border-color: #3a6fc4; box-shadow: 0 0 0 3px rgba(58,111,196,0.15); }
+        .paywall-input-wrap input.error { border-color: #d93025; animation: shake 0.4s; }
+        @keyframes shake { 0%,100%{transform:translateX(0)} 25%{transform:translateX(-6px)} 75%{transform:translateX(6px)} }
+        .pw-toggle { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; font-size: 1.2rem; color: #aaa; }
+        .pw-btn {
+            width: 100%;
+            padding: 1rem;
+            background: linear-gradient(135deg, #3a6fc4, #2a4d9e);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 1rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.2s;
+            margin-bottom: 1rem;
+        }
+        .pw-btn:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(58,111,196,0.4); }
+        .pw-btn:disabled { background: #aaa; cursor: not-allowed; transform: none; box-shadow: none; }
+        .pw-error-msg { color: #d93025; font-size: 0.82rem; min-height: 1.2em; margin-bottom: 0.5rem; }
+        .pw-loading { display: none; }
+        .pw-note { font-size: 0.75rem; color: #aaa; margin-top: 0.5rem; }
+        .pw-purchase-link { color: #3a6fc4; font-weight: 600; text-decoration: none; }
+        .pw-purchase-link:hover { text-decoration: underline; }
+
+        /* 無料期間バナー */
+        #freeBanner {
+            display: none;
+            background: linear-gradient(90deg, #2e9e5b, #1f7840);
+            color: white;
+            text-align: center;
+            padding: 0.5rem 1rem;
+            font-size: 0.88rem;
+            font-weight: 600;
+            letter-spacing: 0.02em;
+        }
+        #freeBanner.active { display: block; }
+        /* ========== /PAYWALL ========== */
     </style>
 </head>
 <body>
@@ -273,6 +348,8 @@
         </div>
     </div>
 </header>
+<!-- 無料期間バナー -->
+<div id="freeBanner">🎉 無料トライアル期間中（〜2026年3月31日）どなたでも無料でご利用いただけます！</div>
 
 <main>
     <!-- 入力エリア -->
@@ -399,7 +476,99 @@
 </div>
 
 <script>
-    if (typeof pdfjsLib !== 'undefined') {
+
+    // ========== PAYWALL LOGIC ==========
+    // ★ WorkerのURLを自分のURLに変更してください
+    const WORKER_URL = 'https://mamoru-auth.yymmatsu.workers.dev/verify';
+    // ★ 購入ページURLを設定してください
+    const PURCHASE_URL = 'https://spc-jp.github.io/jyoho-mamoru/';
+
+    const FREE_DEADLINE = new Date('2026-04-01T00:00:00+09:00'); // JST基準
+
+    function initPaywall() {
+        document.getElementById('purchaseLink').href = PURCHASE_URL;
+
+        const now = new Date();
+        if (now < FREE_DEADLINE) {
+            // 無料期間中
+            document.getElementById('freeBanner').classList.add('active');
+            return; // ゲートなし
+        }
+
+        // 有料期間 → sessionStorageチェック
+        if (sessionStorage.getItem('mamoru_unlocked') === '1') {
+            return; // 認証済み
+        }
+
+        // ペイウォール表示
+        document.getElementById('paywallOverlay').classList.add('active');
+
+        // Enterキー対応
+        document.getElementById('pwInput').addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') verifyPassword();
+        });
+    }
+
+    async function verifyPassword() {
+        const pw = document.getElementById('pwInput').value.trim();
+        if (!pw) { showPwError('パスワードを入力してください'); return; }
+
+        const btn = document.getElementById('pwBtn');
+        const label = document.getElementById('pwBtnLabel');
+        const loading = document.getElementById('pwLoading');
+        btn.disabled = true;
+        label.style.display = 'none';
+        loading.style.display = 'inline';
+        clearPwError();
+
+        try {
+            const res = await fetch(WORKER_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ password: pw })
+            });
+            const data = await res.json();
+
+            if (data.ok) {
+                sessionStorage.setItem('mamoru_unlocked', '1');
+                document.getElementById('paywallOverlay').style.animation = 'none';
+                document.getElementById('paywallOverlay').style.opacity = '0';
+                document.getElementById('paywallOverlay').style.transition = 'opacity 0.4s';
+                setTimeout(() => {
+                    document.getElementById('paywallOverlay').classList.remove('active');
+                    document.getElementById('paywallOverlay').style.opacity = '';
+                }, 400);
+                showToast('✅ 認証成功！情報まもるくんをご利用いただけます', 'success');
+            } else {
+                showPwError('パスワードが違います。ご購入済みの方は再度ご確認ください。');
+                document.getElementById('pwInput').classList.add('error');
+                setTimeout(() => document.getElementById('pwInput').classList.remove('error'), 500);
+            }
+        } catch (err) {
+            console.error(err);
+            showPwError('通信エラーが発生しました。インターネット接続をご確認ください。');
+        } finally {
+            btn.disabled = false;
+            label.style.display = 'inline';
+            loading.style.display = 'none';
+        }
+    }
+
+    function showPwError(msg) { document.getElementById('pwErrorMsg').textContent = msg; }
+    function clearPwError()   { document.getElementById('pwErrorMsg').textContent = ''; }
+
+    function togglePwVisibility() {
+        const input = document.getElementById('pwInput');
+        const btn   = document.getElementById('pwToggle');
+        if (input.type === 'password') { input.type = 'text'; btn.textContent = '🙈'; }
+        else                           { input.type = 'password'; btn.textContent = '👁️'; }
+    }
+
+    // 起動
+    initPaywall();
+    // ========== /PAYWALL LOGIC ==========
+
+    if (typeof pdfjsLib !== 'undefined' {
         pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@2.16.105/build/pdf.worker.min.js';
     }
 
@@ -1233,5 +1402,30 @@ Web：https://example.com/profile
         showStatus('「匿名化する」ボタンを押してテスト実行できます。', 'info');
     }
 </script>
+
+<!-- ========== PAYWALL OVERLAY ========== -->
+<div id="paywallOverlay">
+    <div class="paywall-box">
+        <span class="paywall-icon">🛡️</span>
+        <h2>情報まもるくん</h2>
+        <div class="pw-price">¥2,980 <small>（買い切り）</small></div>
+        <p>2026年4月以降は有料版になりました。<br>ご購入後にお届けするパスワードを入力してください。</p>
+        <div class="paywall-input-wrap">
+            <input type="password" id="pwInput" placeholder="パスワードを入力" autocomplete="off" maxlength="30">
+            <button class="pw-toggle" onclick="togglePwVisibility()" id="pwToggle" title="表示/非表示">👁️</button>
+        </div>
+        <div class="pw-error-msg" id="pwErrorMsg"></div>
+        <button class="pw-btn" id="pwBtn" onclick="verifyPassword()">
+            <span id="pwBtnLabel">🔓 認証してアプリを開く</span>
+            <span class="pw-loading" id="pwLoading">⏳ 確認中...</span>
+        </button>
+        <p class="pw-note">
+            まだご購入でない方は → <a class="pw-purchase-link" href="#" target="_blank" id="purchaseLink">こちらから購入</a>
+        </p>
+        <p class="pw-note" style="margin-top:0.3rem;">🔒 入力情報は認証以外に使用しません</p>
+    </div>
+</div>
+<!-- ========== /PAYWALL OVERLAY ========== -->
+
 </body>
 </html>
