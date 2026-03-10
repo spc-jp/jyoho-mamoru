@@ -30,6 +30,20 @@
             --drop-zone-border: #b8cef5;
         }
 
+        /* ダークモード変数 */
+        [data-theme="dark"] {
+            --bg-color: #121212;
+            --card-bg: #1e1e1e;
+            --text-main: #e0e0e0;
+            --text-sub: #9e9e9e;
+            --border-color: #333333;
+            --input-bg: #2d2d2d;
+            --input-focus-bg: #3d3d3d;
+            --drop-zone-bg: #252525;
+            --drop-zone-border: #555555;
+            --shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+        }
+
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Noto Sans JP", Meiryo, sans-serif; }
 
         body { background-color: var(--bg-color); color: var(--text-main); line-height: 1.6; display: flex; flex-direction: column; min-height: 100vh; }
@@ -156,10 +170,6 @@
         .btn-success { background: linear-gradient(135deg, #2e9e5b, #1f7840); color: white; }
         .btn-small { padding: 0.45rem 0.9rem; font-size: 0.82rem; flex: none; }
 
-        .demo-link { margin-top: 8px; font-size: 0.8rem; color: var(--text-sub); }
-        .demo-link a { color: var(--primary-color); text-decoration: none; }
-        .demo-link a:hover { text-decoration: underline; }
-
         #toast-container { position: fixed; bottom: 20px; right: 20px; z-index: 1000; display: flex; flex-direction: column; gap: 8px; }
         .toast {
             background: #1e1e2e;
@@ -201,14 +211,66 @@
             background: var(--card-bg);
             margin-top: 1rem;
         }
+
+        /* ヘッダーアクションとドロップダウン */
+        .header-actions { display: flex; gap: 0.8rem; align-items: center; }
+        .header-btn { background: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.3); color: white; padding: 6px 14px; border-radius: 6px; cursor: pointer; font-size: 0.85rem; font-weight: 600; transition: background 0.2s; display: flex; align-items: center; gap: 4px; }
+        .header-btn:hover { background: rgba(255,255,255,0.25); }
+        .dropdown { position: relative; }
+        .dropdown-content { display: none; position: absolute; right: 0; top: 120%; background-color: var(--card-bg); min-width: 200px; box-shadow: var(--shadow); border: 1px solid var(--border-color); border-radius: 8px; z-index: 100; overflow: hidden; }
+        .dropdown-content.show { display: block; animation: fadeIn 0.2s ease; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(-5px); } to { opacity: 1; transform: translateY(0); } }
+        .dropdown-item { padding: 12px 16px; display: flex; align-items: center; justify-content: space-between; font-size: 0.9rem; color: var(--text-main); }
+        .dropdown-divider { height: 1px; background-color: var(--border-color); margin: 4px 0; }
+        .link-item { cursor: pointer; font-size: 0.78rem; color: var(--text-sub); opacity: 0.75; transition: all 0.2s; }
+        .link-item:hover { background-color: var(--bg-color); opacity: 1; color: var(--primary-color); }
+        
+        /* トグルスイッチ */
+        .theme-switch { position: relative; display: flex; align-items: center; gap: 10px; cursor: pointer; width: 100%; justify-content: space-between; }
+        .theme-switch input { opacity: 0; width: 0; height: 0; }
+        .slider { position: relative; width: 36px; height: 20px; background-color: #ccc; border-radius: 20px; transition: .4s; }
+        .slider:before { position: absolute; content: ""; height: 14px; width: 14px; left: 3px; bottom: 3px; background-color: white; border-radius: 50%; transition: .4s; }
+        input:checked + .slider { background-color: var(--primary-color); }
+        input:checked + .slider:before { transform: translateX(16px); }
+
+        /* モーダル */
+        .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); align-items: center; justify-content: center; backdrop-filter: blur(3px); }
+        .modal-content { background-color: var(--card-bg); padding: 2rem; border-radius: var(--radius); width: 90%; max-width: 600px; box-shadow: 0 10px 30px rgba(0,0,0,0.3); position: relative; color: var(--text-main); animation: modalIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); max-height: 90vh; overflow-y: auto; }
+        @keyframes modalIn { from { opacity: 0; transform: scale(0.9); } to { opacity: 1; transform: scale(1); } }
+        .close-btn { position: absolute; top: 15px; right: 20px; font-size: 1.8rem; color: var(--text-sub); cursor: pointer; line-height: 1; }
+        .close-btn:hover { color: var(--text-main); }
+        .modal-content h2 { margin-bottom: 1rem; color: var(--primary-color); font-size: 1.3rem; border-bottom: 2px solid var(--border-color); padding-bottom: 0.5rem; }
+        .modal-body h3 { font-size: 1.05rem; margin: 1.2rem 0 0.5rem; color: var(--text-main); }
+        .modal-body p { font-size: 0.9rem; line-height: 1.6; color: var(--text-main); }
+        .modal-body ul { padding-left: 1.5rem; font-size: 0.9rem; color: var(--text-main); margin-top: 0.5rem; }
+        .modal-body li { margin-bottom: 0.5rem; line-height: 1.6; }
     </style>
 </head>
 <body>
 
 <header>
     <div>
-        <h1>🛡️ 情報まもるくん <span class="badge">完全ローカル版</span></h1>
-        <p class="sub-catch">士業向け高度匿名化ツール（API通信不要・全ファイル対応）</p>
+        <h1>🛡️ 情報まもるくん <span class="badge">完全ローカル</span></h1>
+        <p class="sub-catch">高度匿名化ツール（外部通信ゼロ・全ファイル対応）</p>
+    </div>
+    <div class="header-actions">
+        <button class="header-btn" onclick="openModal('helpModal')">📖 使い方</button>
+        <div class="dropdown">
+            <button class="header-btn" onclick="toggleDropdown('settingsDropdown')">⚙️ 設定</button>
+            <div id="settingsDropdown" class="dropdown-content">
+                <div class="dropdown-item">
+                    <label class="theme-switch">
+                        <span style="font-weight: 600;">ダークモード</span>
+                        <input type="checkbox" id="themeToggle" onchange="toggleTheme()">
+                        <span class="slider"></span>
+                    </label>
+                </div>
+                <div class="dropdown-divider"></div>
+                <!-- 薄文字のメニュー -->
+                <div class="dropdown-item link-item" onclick="loadDemoData(); closeDropdown()">📄 デモデータを読み込む</div>
+                <div class="dropdown-item link-item" onclick="clearAll(); closeDropdown()">🗑️ すべてクリアする</div>
+            </div>
+        </div>
     </div>
 </header>
 
@@ -277,9 +339,6 @@
                     🗑️ クリア
                 </button>
             </div>
-            <div class="demo-link" id="demoLinkArea">
-                <a href="#" onclick="loadDemoData(); return false;">▶ デモデータを読み込む</a>
-            </div>
         </div>
     </section>
 
@@ -313,10 +372,31 @@
 </main>
 
 <footer>
-    情報まもるくん ― ローカル完結処理 | 入力データは外部送信されません
+    情報まもるくん ― 完全ローカル処理 | 入力データは外部送信されません
 </footer>
 
 <div id="toast-container"></div>
+
+<!-- 使い方モーダル -->
+<div id="helpModal" class="modal">
+    <div class="modal-content">
+        <span class="close-btn" onclick="closeModal('helpModal')">&times;</span>
+        <h2>📖 情報まもるくんの目的と使い方</h2>
+        <div class="modal-body">
+            <h3>■ 目的</h3>
+            <p>弁護士・税理士・社労士などの士業や、機密情報を扱う実務において、相談事例や契約情報などの機微な情報を<strong>外部サーバーに送信することなく（完全ローカルで）安全に匿名化</strong>し、安心して情報の共有や二次利用（AIへの入力など）を行えるように開発されたツールです。</p>
+            
+            <h3>■ 使い方</h3>
+            <ul>
+                <li><strong>情報の入力：</strong> 匿名化したい文章を左側のテキストエリアに貼り付けるか、対応ファイル（PDF, Word, Excel, TXT, 画像）を上部の点線枠内にドロップしてください。</li>
+                <li><strong>手動ルールの設定：</strong> 自動判別されない独自の固有名詞や隠したい言葉がある場合は、「置換前 => 置換後」の形式で個別に指定できます。（例：極秘プロジェクトX => 某案件）</li>
+                <li><strong>匿名化の実行：</strong> 「✨ 匿名化する」ボタンを押すと、瞬時に個人名・会社名・住所・金額・日付・連絡先などが抽象的な表現に変換されます。</li>
+                <li><strong>結果の利用：</strong> 右側に表示された安全なテキストを「コピー」するか、「TXT保存」してご利用ください。</li>
+                <li><strong>画像・スキャンPDFの場合：</strong> 画面上でマウスをドラッグし、隠したい部分を直接「黒塗り（マスキング）」することができます。処理後は画像をダウンロードできます。</li>
+            </ul>
+        </div>
+    </div>
+</div>
 
 <script>
     if (typeof pdfjsLib !== 'undefined') {
@@ -336,7 +416,6 @@
     const canvasModeContainer = document.getElementById('canvasModeContainer');
     const inputText           = document.getElementById('inputText');
     const btnAction           = document.getElementById('btnAction');
-    const demoLinkArea        = document.getElementById('demoLinkArea');
 
     const textOutputContainer  = document.getElementById('textOutputContainer');
     const organizedOutput      = document.getElementById('organizedOutput');
@@ -350,7 +429,7 @@
 
     // --- State ---
     let currentMode = 'text';
-    let lastAnonymizedText = ''; // ★追加: コピー・ダウンロード用の元テキストを保持
+    let lastAnonymizedText = ''; 
     const canvas = document.getElementById('imageCanvas');
     const ctx    = canvas.getContext('2d');
     let isDrawing    = false;
@@ -358,6 +437,50 @@
     let currentPdfDoc  = null;
     let currentPdfPageNum = 1;
     let totalPdfPages  = 1;
+
+    // --- 設定・UI操作 ---
+    document.addEventListener('DOMContentLoaded', () => {
+        // テーマの初期化
+        const savedTheme = localStorage.getItem('theme');
+        if (savedTheme === 'dark') {
+            document.documentElement.setAttribute('data-theme', 'dark');
+            const themeToggle = document.getElementById('themeToggle');
+            if (themeToggle) themeToggle.checked = true;
+        }
+        
+        // ドロップダウン外をクリックした時に閉じる
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('.dropdown')) {
+                closeDropdown();
+            }
+        });
+    });
+
+    function toggleTheme() {
+        const isDark = document.getElementById('themeToggle').checked;
+        if (isDark) {
+            document.documentElement.setAttribute('data-theme', 'dark');
+            localStorage.setItem('theme', 'dark');
+        } else {
+            document.documentElement.removeAttribute('data-theme');
+            localStorage.setItem('theme', 'light');
+        }
+    }
+
+    function toggleDropdown(id) {
+        document.getElementById(id).classList.toggle('show');
+    }
+    function closeDropdown() {
+        const dropdowns = document.querySelectorAll('.dropdown-content');
+        dropdowns.forEach(d => d.classList.remove('show'));
+    }
+
+    function openModal(id) {
+        document.getElementById(id).style.display = 'flex';
+    }
+    function closeModal(id) {
+        document.getElementById(id).style.display = 'none';
+    }
 
     // --- ライブラリ読み込み確認 ---
     function checkLib(name) {
@@ -432,7 +555,12 @@
 
     function finishTextLoad(text, typeName) {
         if (!text || !text.trim()) {
-            showToast(`${typeName}からテキストを抽出できませんでした（空または画像のみのPDFかもしれません）`, 'error');
+            // エラーをスローする代わりに、UIで適切にメッセージを表示して処理を終了します
+            if (typeName === 'PDF') {
+                showToast(`このPDFからはテキストを抽出できません。スキャンPDFの場合は「画像で表示」モードをお試しください。`, 'error');
+            } else {
+                showToast(`${typeName}からテキストを抽出できませんでした（データが空の可能性があります）`, 'error');
+            }
             resetDropZone();
             hideStatus();
             return;
@@ -462,8 +590,7 @@
     async function extractTextFromWord(file) {
         const arrayBuffer = await file.arrayBuffer();
         const result = await mammoth.extractRawText({ arrayBuffer });
-        if (!result.value) throw new Error('Wordファイルからテキストを読み取れませんでした');
-        return result.value;
+        return result.value || '';
     }
 
     async function extractTextFromExcel(file) {
@@ -475,7 +602,6 @@
             const csv = XLSX.utils.sheet_to_csv(worksheet);
             if (csv.trim()) fullText += `\n--- シート：${sheetName} ---\n${csv}\n`;
         });
-        if (!fullText.trim()) throw new Error('Excelファイルからデータを読み取れませんでした');
         return fullText;
     }
 
@@ -484,18 +610,20 @@
         let pdf;
         try {
             pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+            let fullText = '';
+            for (let i = 1; i <= pdf.numPages; i++) {
+                const page = await pdf.getPage(i);
+                const textContent = await page.getTextContent();
+                const pageText = textContent.items.map(item => item.str).join(' ');
+                if (pageText.trim()) fullText += `--- ${i}ページ ---\n${pageText}\n\n`;
+            }
+            // 例外をスローせず、抽出できたテキスト（空文字含む）をそのまま返します
+            return fullText;
         } catch (e) {
-            throw new Error('PDFの読み込みに失敗しました。パスワード保護されていないか確認してください。');
+            console.error('PDF解析エラー:', e);
+            // 読み込み不可の場合は空文字を返し、呼び出し元の finishTextLoad で優しくトースト表示させる
+            return '';
         }
-        let fullText = '';
-        for (let i = 1; i <= pdf.numPages; i++) {
-            const page = await pdf.getPage(i);
-            const textContent = await page.getTextContent();
-            const pageText = textContent.items.map(item => item.str).join(' ');
-            if (pageText.trim()) fullText += `--- ${i}ページ ---\n${pageText}\n\n`;
-        }
-        if (!fullText.trim()) throw new Error('このPDFからはテキストを抽出できません。スキャンPDFの場合は「画像で表示」モードをお試しください。');
-        return fullText;
     }
 
     // --- PDF Canvas ---
@@ -503,16 +631,20 @@
         const arrayBuffer = await file.arrayBuffer();
         try {
             currentPdfDoc = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+            totalPdfPages = currentPdfDoc.numPages;
+            currentPdfPageNum = 1;
+            setMode('image', true);
+            await renderPdfPage(currentPdfPageNum);
+            resetDropZone();
+            hideStatus();
+            showToast('PDFを読み込みました。マウスで黒塗りできます。', 'success');
         } catch (e) {
-            throw new Error('PDFの読み込みに失敗しました');
+            console.error('PDF画像化エラー:', e);
+            showToast('PDFの読み込みに失敗しました。パスワード保護等をご確認ください。', 'error');
+            resetDropZone();
+            hideStatus();
+            setMode('text');
         }
-        totalPdfPages = currentPdfDoc.numPages;
-        currentPdfPageNum = 1;
-        setMode('image', true);
-        await renderPdfPage(currentPdfPageNum);
-        resetDropZone();
-        hideStatus();
-        showToast('PDFを読み込みました。マウスで黒塗りできます。', 'success');
     }
 
     async function renderPdfPage(pageNum) {
@@ -541,6 +673,9 @@
         reader.onload = (event) => {
             const img = new Image();
             img.onload = () => {
+                // ★修正: 先にモードを切り替えて要素を表示（display: flex）させてから、clientWidthを取得しないと幅が0になるバグを防止
+                setMode('image', false);
+                
                 const maxWidth = canvasModeContainer.clientWidth - 32 || 600;
                 let w = img.width, h = img.height;
                 if (w > maxWidth) { h = Math.round(h * maxWidth / w); w = maxWidth; }
@@ -548,15 +683,15 @@
                 canvas.height = h;
                 originalImage = img;
                 ctx.drawImage(img, 0, 0, w, h);
-                setMode('image', false);
+                
                 resetDropZone();
                 hideStatus();
                 showToast('画像を読み込みました。ドラッグで黒塗りできます。', 'success');
             };
-            img.onerror = () => { showToast('画像の読み込みに失敗しました', 'error'); resetDropZone(); };
+            img.onerror = () => { showToast('画像の読み込みに失敗しました', 'error'); resetDropZone(); hideStatus(); };
             img.src = event.target.result;
         };
-        reader.onerror = () => { showToast('ファイルの読み込みに失敗しました', 'error'); resetDropZone(); };
+        reader.onerror = () => { showToast('ファイルの読み込みに失敗しました', 'error'); resetDropZone(); hideStatus(); };
         reader.readAsDataURL(file);
     }
 
@@ -616,7 +751,6 @@
             textOutputContainer.style.display    = 'none';
             imageOutputContainer.style.display   = 'none';
             btnAction.textContent                = '🖌️ 黒塗りを確定する';
-            demoLinkArea.style.display           = 'none';
             document.getElementById('pdfPageControls').style.display = isPdf ? 'flex' : 'none';
         } else {
             textModeContainer.style.display      = 'flex';
@@ -624,7 +758,6 @@
             textOutputContainer.style.display    = 'flex';
             imageOutputContainer.style.display   = 'none';
             btnAction.textContent                = '✨ 匿名化する';
-            demoLinkArea.style.display           = 'block';
         }
     }
 
@@ -664,6 +797,15 @@
         organizedOutput.innerHTML = '<span class="placeholder-text">左側で匿名化を実行すると、結果がここに表示されます。</span>';
         pdfSettings.style.display = 'none';
         lastAnonymizedText = ''; // ★クリア
+        
+        // ★追加: キャンバスとPDFのステータスも完全に初期化し、連続アップロード時のバグを防ぐ
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        originalImage = null;
+        currentPdfDoc = null;
+        currentPdfPageNum = 1;
+        totalPdfPages = 1;
+        document.getElementById('pdfPageInfo').innerText = '1 / 1';
+        
         setMode('text');
         hideStatus();
         showToast('クリアしました');
@@ -712,10 +854,16 @@
         // 0. ユーザー定義の手動置換ルール（優先）
         result = applyManualRules(result);
 
-        // ① 個人名・会社名
+        // ★追加ルールA: 連絡先（メールアドレス・URL）
+        result = anonymizeContacts(result);
+
+        // ★追加ルールB: 年齢（丸め処理）
+        result = anonymizeAges(result);
+
+        // ① 個人名・会社名（★敬称なしの主要名字検知も追加）
         result = anonymizeNamesAndCompanies(result);
         
-        // ② 住所（所在地）と ⑨ 地名（詳細）
+        // ② 住所（所在地）と ⑨ 地名（詳細）（★主要区・都市の検知も追加）
         result = anonymizePlaces(result);
         
         // ③ 企業名・団体名（特定の固有企業を業界名等へ）
@@ -737,6 +885,29 @@
         result = anonymizeNumbers(result);
 
         return result;
+    }
+
+    // --- ★追加機能: メールアドレス・URL ---
+    function anonymizeContacts(text) {
+        // メールアドレスをマスク
+        text = text.replace(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g, 'XXXX@XXXX.XXX');
+        // URLをマスク
+        text = text.replace(/https?:\/\/[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}(?:\/[^\s]*)?/g, 'https://XXXX.XXX');
+        return text;
+    }
+
+    // --- ★追加機能: 年齢の丸め処理 ---
+    function anonymizeAges(text) {
+        const toHalfWidth = str => str ? str.replace(/[０-９]/g, c => String.fromCharCode(c.charCodeAt(0) - 0xFEE0)) : '';
+        // 「〇〇歳」を「〇〇代」に変換
+        text = text.replace(/([0-9０-９]{1,3})歳/g, (match, p1) => {
+            const age = parseInt(toHalfWidth(p1), 10);
+            if (isNaN(age)) return match;
+            if (age < 10) return '10歳未満'; // 1桁の年齢への対応
+            const generation = Math.floor(age / 10) * 10;
+            return `${generation}代`;
+        });
+        return text;
     }
 
     // --- ルール① 個人名・会社名 ---
@@ -764,6 +935,15 @@
             return getCompanySymbol(name);
         });
 
+        // ★追加機能: 敬称なし（呼び捨て）で頻出する名字の置換
+        // ※「小林製薬」のような誤爆を防ぐため、1文字の名字や会社名になりやすいものは除外し、長めの名字リストを使用します。
+        // すでに A氏 などに置換されたものは対象外となるよう後で実行します。
+        const topFamilyNames = ['佐藤', '鈴木', '高橋', '田中', '渡辺', '伊藤', '山本', '中村', '小林', '加藤', '吉田', '山田', '佐々木', '山口', '松本', '井上', '木村', '斎藤', '清水', '山崎', '池田', '橋本', '阿部', '石川', '山下', '中島', '石井', '小川'];
+        topFamilyNames.forEach(name => {
+            // 文字列中にその名字が単独で出現した場合にA氏などに置換する
+            text = text.replace(new RegExp(name, 'g'), getPersonSymbol(name));
+        });
+
         return text;
     }
 
@@ -789,6 +969,17 @@
             if (pref === '京都府') return '京都府内';
             return pref + '内';
         });
+
+        // ★追加機能: 都道府県を省略した主要な「区」や「市」の対応
+        // 東京23区
+        const tokyoWards = ['千代田区', '中央区', '港区', '新宿区', '文京区', '台東区', '墨田区', '江東区', '品川区', '目黒区', '大田区', '世田谷区', '渋谷区', '中野区', '杉並区', '豊島区', '北区', '荒川区', '板橋区', '練馬区', '足立区', '葛飾区', '江戸川区'];
+        const wardPattern = new RegExp(`(${tokyoWards.join('|')})[一-龠ぁ-んァ-ヶ\\d\\-０-９ー]*`, 'g');
+        text = text.replace(wardPattern, '都内');
+
+        // 主要な政令指定都市など
+        const majorCities = ['札幌市', '仙台市', 'さいたま市', '千葉市', '横浜市', '川崎市', '相模原市', '新潟市', '静岡市', '浜松市', '名古屋市', '京都市', '大阪市', '堺市', '神戸市', '岡山市', '広島市', '北九州市', '福岡市', '熊本市'];
+        const cityPattern = new RegExp(`(${majorCities.join('|')})[一-龠ぁ-んァ-ヶ\\d\\-０-９ー]*`, 'g');
+        text = text.replace(cityPattern, '市内');
 
         return text;
     }
@@ -1022,18 +1213,22 @@
     }
 
     function loadDemoData() {
-        inputText.value = `以下の内容をご確認ください。
+        inputText.value = `【相談記録】2024年4月3日
+相談者：山田太郎（35歳）
+連絡先：taro.yamada@example.co.jp / 090-1234-5678
+Web：https://example.com/profile
 
-個人情報：山田太郎、佐藤花子
-会社名：株式会社ABC
-提携先：楽天株式会社、トヨタ自動車、みずほ銀行
-住所：東京都港区六本木1-2-3、大阪市北区梅田4-5
-最寄り駅：新宿駅周辺、渋谷区、札幌市中央区
-金額：1,234,000円、12,400,000円、98,000円
-日付：2024年4月3日、2023年12月15日
-役職：代表取締役、経理部長、人事部課長
-取引：Salesforce導入、半導体製造装置売買
-番号：090-1234-5678、口座番号1234567、契約番号AB123456`;
+■ 相談内容
+東京都港区六本木1-2-3に本社を置く、株式会社ABCの代表取締役である山田太郎氏より、新規システム導入に関する契約トラブルの相談。
+相手方は楽天株式会社で、契約内容はSalesforce導入およびカスタマイズ業務。
+2023年12月15日に初期費用として12,400,000円をみずほ銀行の口座（口座番号1234567）に振り込んだが、現在に至るまで納品されていない。
+相手方の担当者は鈴木一郎氏および佐藤花子氏。
+
+また、関連してトヨタ自動車との半導体製造装置売買（見積金額 1,234,000円）や、広告代理店契約（98,000円）についても、進捗の遅れが指摘されている。
+相手先住所は大阪市北区梅田4-5および新宿区西新宿2-8-1。
+打ち合わせは主に新宿駅周辺や札幌市中央区で行われていた。
+
+契約番号AB123456の書面を確認し、今後の法的対応について検討する。経理部長や人事部課長へのヒアリングも追加で行う予定。`;
         showToast('デモデータを読み込みました');
         showStatus('「匿名化する」ボタンを押してテスト実行できます。', 'info');
     }
