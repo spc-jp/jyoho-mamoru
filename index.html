@@ -245,29 +245,101 @@
         .modal-body ul { padding-left: 1.5rem; font-size: 0.9rem; color: var(--text-main); margin-top: 0.5rem; }
         .modal-body li { margin-bottom: 0.5rem; line-height: 1.6; }
 
-        /* ===== PAYWALL ===== */
-        #paywallOverlay { display:none; position:fixed; inset:0; z-index:9999; background:linear-gradient(135deg,#1a2e5a,#2a4d9e); align-items:center; justify-content:center; }
-        #paywallOverlay.active { display:flex; }
-        .paywall-box { background:#fff; border-radius:20px; padding:2.5rem 2rem; max-width:420px; width:90%; text-align:center; box-shadow:0 20px 60px rgba(0,0,0,0.4); }
-        .paywall-icon { font-size:3rem; margin-bottom:0.5rem; display:block; }
-        .paywall-box h2 { font-size:1.4rem; color:#1a2e5a; margin-bottom:0.3rem; font-weight:800; }
-        .pw-price { font-size:2rem; font-weight:800; color:#3a6fc4; margin:0.4rem 0; }
-        .pw-price small { font-size:0.9rem; color:#888; font-weight:400; }
-        .paywall-box p { font-size:0.88rem; color:#666; margin-bottom:1.2rem; line-height:1.6; }
-        .paywall-input-wrap { position:relative; margin-bottom:0.5rem; }
-        .paywall-input-wrap input { width:100%; padding:0.9rem 3rem 0.9rem 1rem; border:2px solid #dde3ed; border-radius:10px; font-size:1.1rem; text-align:center; letter-spacing:0.15em; outline:none; }
-        .paywall-input-wrap input:focus { border-color:#3a6fc4; }
-        .paywall-input-wrap input.pwerr { border-color:#d93025; animation:pwShake 0.4s; }
-        @keyframes pwShake { 0%,100%{transform:translateX(0)} 25%{transform:translateX(-6px)} 75%{transform:translateX(6px)} }
-        .pw-toggle { position:absolute; right:12px; top:50%; transform:translateY(-50%); background:none; border:none; cursor:pointer; font-size:1.2rem; }
-        .pw-btn { width:100%; padding:1rem; background:linear-gradient(135deg,#3a6fc4,#2a4d9e); color:white; border:none; border-radius:10px; font-size:1rem; font-weight:700; cursor:pointer; margin:0.8rem 0 0.5rem; }
-        .pw-btn:disabled { background:#aaa; cursor:not-allowed; }
-        .pwerrmsg { color:#d93025; font-size:0.82rem; min-height:1.2em; }
-        .pwnote { font-size:0.75rem; color:#aaa; margin-top:0.4rem; }
-        .pwlink { color:#3a6fc4; font-weight:600; text-decoration:none; }
-        #freeBanner { display:none; background:linear-gradient(90deg,#2e9e5b,#1f7840); color:white; text-align:center; padding:0.5rem 1rem; font-size:0.88rem; font-weight:600; }
-        #freeBanner.active { display:block; }
-        /* ===== /PAYWALL ===== */
+        /* ===== TRIAL PAYWALL ===== */
+        /* バナー */
+        #trialBanner {
+            display: none;
+            padding: 0.55rem 1.2rem;
+            text-align: center;
+            font-size: 0.88rem;
+            font-weight: 600;
+            letter-spacing: 0.02em;
+            position: relative;
+        }
+        #trialBanner.free   { background: linear-gradient(90deg, #c8960c, #e8b830); color: #1a1a1a; display: block; }
+        #trialBanner.warn   { background: linear-gradient(90deg, #d97706, #f59e0b); color: #1a1a1a; display: block; }
+        #trialBanner.last   { background: linear-gradient(90deg, #b45309, #d97706); color: white; display: block; }
+        #trialBanner.over   { background: linear-gradient(90deg, #b91c1c, #dc2626); color: white; display: block; }
+        #trialBanner a { color: inherit; font-weight: 800; text-decoration: underline; cursor: pointer; }
+
+        /* オーバーレイ */
+        #trialOverlay {
+            display: none;
+            position: fixed; inset: 0; z-index: 9999;
+            background: rgba(10, 20, 50, 0.92);
+            backdrop-filter: blur(4px);
+            align-items: center; justify-content: center;
+        }
+        #trialOverlay.active { display: flex; }
+
+        .trial-box {
+            background: linear-gradient(160deg, #0f1e45 0%, #1a3272 50%, #0f1e45 100%);
+            border: 1px solid rgba(91,139,217,0.3);
+            border-radius: 20px;
+            padding: 2.5rem 2rem;
+            max-width: 420px;
+            width: 92%;
+            text-align: center;
+            box-shadow: 0 24px 80px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.08);
+            animation: tbIn 0.4s cubic-bezier(0.34,1.56,0.64,1) forwards;
+        }
+        @keyframes tbIn { from { opacity:0; transform:scale(0.88) translateY(24px); } to { opacity:1; transform:scale(1) translateY(0); } }
+
+        .trial-icon { font-size: 3rem; display: block; margin-bottom: 0.6rem; }
+        .trial-box h2 { font-size: 1.35rem; color: #e8f0ff; font-weight: 800; margin-bottom: 0.3rem; }
+        .trial-box .tb-sub { font-size: 0.85rem; color: #94a3c0; margin-bottom: 1.4rem; line-height: 1.6; }
+
+        .tb-stripe-btn {
+            display: block; width: 100%;
+            padding: 1rem;
+            background: linear-gradient(135deg, #c8960c, #e8b830);
+            color: #1a1000;
+            border: none; border-radius: 12px;
+            font-size: 1rem; font-weight: 800;
+            text-decoration: none;
+            cursor: pointer;
+            margin-bottom: 1.4rem;
+            transition: all 0.2s;
+            box-shadow: 0 4px 20px rgba(200,150,12,0.4);
+        }
+        .tb-stripe-btn:hover { transform: translateY(-2px); box-shadow: 0 8px 28px rgba(200,150,12,0.5); }
+
+        .tb-divider { color: #4a5a80; font-size: 0.8rem; margin-bottom: 1.2rem; position: relative; }
+        .tb-divider::before, .tb-divider::after {
+            content: ''; position: absolute; top: 50%; width: 38%; height: 1px;
+            background: rgba(91,139,217,0.25);
+        }
+        .tb-divider::before { left: 0; }
+        .tb-divider::after { right: 0; }
+
+        .tb-input-wrap { position: relative; margin-bottom: 0.6rem; }
+        .tb-input-wrap input {
+            width: 100%; padding: 0.85rem 3rem 0.85rem 1rem;
+            background: rgba(255,255,255,0.07);
+            border: 1.5px solid rgba(91,139,217,0.35);
+            border-radius: 10px;
+            color: #e8f0ff; font-size: 1rem; text-align: center; letter-spacing: 0.12em;
+            outline: none; transition: border-color 0.2s;
+        }
+        .tb-input-wrap input::placeholder { color: #4a5a80; letter-spacing: 0; }
+        .tb-input-wrap input:focus { border-color: #5b8bd9; background: rgba(91,139,217,0.1); }
+        .tb-input-wrap input.tberr { border-color: #ef4444; animation: tbShake 0.4s; }
+        @keyframes tbShake { 0%,100%{transform:translateX(0)} 25%{transform:translateX(-6px)} 75%{transform:translateX(6px)} }
+        .tb-eye { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; font-size: 1.1rem; color: #4a5a80; }
+
+        .tb-pw-btn {
+            width: 100%; padding: 0.85rem;
+            background: linear-gradient(135deg, #3a6fc4, #2a4d9e);
+            color: white; border: none; border-radius: 10px;
+            font-size: 0.95rem; font-weight: 700; cursor: pointer;
+            transition: all 0.2s; margin-bottom: 0.5rem;
+        }
+        .tb-pw-btn:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(58,111,196,0.4); }
+        .tb-pw-btn:disabled { background: #334; cursor: not-allowed; transform: none; }
+
+        .tb-err-msg { color: #f87171; font-size: 0.8rem; min-height: 1.2em; margin-bottom: 0.4rem; }
+        .tb-note { font-size: 0.73rem; color: #4a5a80; margin-top: 0.8rem; }
+        /* ===== /TRIAL PAYWALL ===== */
     </style>
 </head>
 <body>
@@ -297,7 +369,7 @@
         </div>
     </div>
 </header>
-<div id="freeBanner">🎉 無料トライアル期間中（〜2026年3月31日）どなたでも無料でご利用いただけます！</div>
+<div id="trialBanner"></div>
 
 <main>
     <!-- 入力エリア -->
@@ -1258,49 +1330,153 @@ Web：https://example.com/profile
         showStatus('「匿名化する」ボタンを押してテスト実行できます。', 'info');
     }
 
-    // ===== PAYWALL =====
-    var PWWORKER = 'https://mamoru-auth.yymmatsu.workers.dev/verify';
-    var PWDEADLINE = new Date('2026-04-01T00:00:00+09:00');
-    function pwInit() {
-        if (new Date() < PWDEADLINE) { document.getElementById('freeBanner').classList.add('active'); return; }
-        if (sessionStorage.getItem('mamoru_ok') === '1') return;
-        document.getElementById('paywallOverlay').classList.add('active');
-        document.getElementById('pwInput').addEventListener('keydown', function(e) { if (e.key === 'Enter') pwVerify(); });
+    // ===== TRIAL PAYWALL =====
+    var TB_WORKER  = 'https://mamoru-auth.yymmatsu.workers.dev/verify';
+    var TB_MAX     = 3;
+    var TB_KEY     = 'mamoru_count';
+    var TB_UNLOCK  = 'mamoru_ok';
+
+    function tbGetCount() { return parseInt(localStorage.getItem(TB_KEY) || '0', 10); }
+    function tbSetCount(n) { localStorage.setItem(TB_KEY, String(n)); }
+
+    function tbUpdateBanner() {
+        var banner  = document.getElementById('trialBanner');
+        var count   = tbGetCount();
+        var unlocked = sessionStorage.getItem(TB_UNLOCK) === '1';
+        if (unlocked) { banner.style.display = 'none'; return; }
+        var remain = TB_MAX - count;
+        if (remain >= TB_MAX) {
+            banner.className = 'free';
+            banner.innerHTML = '🎁 今なら3回まで無料でお試しいただけます（登録不要）';
+        } else if (remain === 2) {
+            banner.className = 'warn';
+            banner.innerHTML = '🎁 無料体験 残り2回（全3回）';
+        } else if (remain === 1) {
+            banner.className = 'last';
+            banner.innerHTML = '🎁 無料体験 残り1回（全3回）';
+        } else {
+            banner.className = 'over';
+            banner.innerHTML = '⚠️ 無料体験が終了しました　<a onclick="tbShowOverlay()">ご購入はこちら →</a>';
+        }
     }
-    function pwVerify() {
-        var pw = document.getElementById('pwInput').value.trim();
-        if (!pw) { pwErr('パスワードを入力してください'); return; }
-        var btn = document.getElementById('pwBtn');
+
+    function tbShowOverlay() {
+        document.getElementById('trialOverlay').classList.add('active');
+        setTimeout(function() {
+            var el = document.getElementById('tbPwInput');
+            if (el) el.focus();
+        }, 300);
+    }
+
+    function tbClose() {
+        document.getElementById('trialOverlay').classList.remove('active');
+    }
+
+    // 匿名化実行をフック
+    var _origExecute = null;
+    function tbHookAnonymize() {
+        var origBtn = document.getElementById('btnAction');
+        if (!origBtn) return;
+        origBtn.addEventListener('click', function(e) {
+            if (sessionStorage.getItem(TB_UNLOCK) === '1') return; // 解除済み
+            var count = tbGetCount();
+            if (count >= TB_MAX) {
+                e.stopImmediatePropagation();
+                tbShowOverlay();
+            }
+        }, true); // キャプチャフェーズで先に処理
+    }
+
+    // executeTextAnonymizationをラップ
+    var _origExecText = null;
+    document.addEventListener('DOMContentLoaded', function() {
+        tbUpdateBanner();
+        tbHookAnonymize();
+    });
+
+    // 匿名化完了後にカウントアップ（showToastをフック）
+    var _origShowToast = null;
+    window.addEventListener('load', function() {
+        _origShowToast = showToast;
+        showToast = function(msg, type) {
+            _origShowToast(msg, type);
+            if (type === 'success' && msg.indexOf('匿名化') !== -1 && sessionStorage.getItem(TB_UNLOCK) !== '1') {
+                var c = tbGetCount();
+                if (c < TB_MAX) {
+                    tbSetCount(c + 1);
+                    tbUpdateBanner();
+                    if (tbGetCount() >= TB_MAX) {
+                        setTimeout(tbShowOverlay, 800);
+                    }
+                }
+            }
+        };
+        tbUpdateBanner();
+    });
+
+    function tbVerify() {
+        var pw = document.getElementById('tbPwInput').value.trim();
+        if (!pw) { tbErr('パスワードを入力してください'); return; }
+        var btn = document.getElementById('tbPwBtn');
         btn.disabled = true; btn.textContent = '⏳ 確認中...';
-        document.getElementById('pwErrMsg').textContent = '';
-        fetch(PWWORKER, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({password: pw}) })
+        document.getElementById('tbErrMsg').textContent = '';
+        fetch(TB_WORKER, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({password: pw})
+        })
         .then(function(r) { return r.json(); })
         .then(function(d) {
             if (d.ok) {
-                sessionStorage.setItem('mamoru_ok', '1');
-                document.getElementById('paywallOverlay').classList.remove('active');
-                showToast('認証成功！ご利用いただけます', 'success');
+                sessionStorage.setItem(TB_UNLOCK, '1');
+                document.getElementById('trialOverlay').classList.remove('active');
+                document.getElementById('trialBanner').style.display = 'none';
+                _origShowToast ? _origShowToast('認証成功！ご利用いただけます', 'success') : showToast('認証成功！ご利用いただけます', 'success');
             } else {
-                pwErr('パスワードが違います');
-                var i = document.getElementById('pwInput');
-                i.classList.add('pwerr');
-                setTimeout(function() { i.classList.remove('pwerr'); }, 500);
+                tbErr('パスワードが違います');
+                var i = document.getElementById('tbPwInput');
+                i.classList.add('tberr');
+                setTimeout(function() { i.classList.remove('tberr'); }, 500);
             }
         })
-        .catch(function() { pwErr('通信エラー。接続をご確認ください'); })
-        .finally(function() { btn.disabled = false; btn.textContent = '🔓 認証してアプリを開く'; });
+        .catch(function() { tbErr('通信エラー。接続をご確認ください'); })
+        .finally(function() { btn.disabled = false; btn.textContent = '入室してアプリを開始する'; });
     }
-    function pwErr(m) { document.getElementById('pwErrMsg').textContent = m; }
-    function pwToggle() {
-        var i = document.getElementById('pwInput'); var b = document.querySelector('.pw-toggle');
+
+    function tbErr(m) { document.getElementById('tbErrMsg').textContent = m; }
+
+    function tbToggle() {
+        var i = document.getElementById('tbPwInput');
+        var b = document.querySelector('.tb-eye');
         if (i.type === 'password') { i.type = 'text'; b.textContent = '🙈'; }
         else { i.type = 'password'; b.textContent = '👁️'; }
     }
-    pwInit();
-    // ===== /PAYWALL =====
+
+    document.getElementById('tbPwInput') && document.getElementById('tbPwInput').addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') tbVerify();
+    });
+    // ===== /TRIAL PAYWALL =====
 
 </script>
 
-<div id="paywallOverlay"><div class="paywall-box"><span class="paywall-icon">🛡️</span><h2>情報まもるくん</h2><div class="pw-price">¥2,980 <small>（買い切り）</small></div><p>2026年4月以降は有料版です。<br>ご購入後のパスワードを入力してください。</p><div class="paywall-input-wrap"><input type="password" id="pwInput" placeholder="パスワードを入力" maxlength="30"><button class="pw-toggle" onclick="pwToggle()">👁️</button></div><div class="pwerrmsg" id="pwErrMsg"></div><button class="pw-btn" id="pwBtn" onclick="pwVerify()">🔓 認証してアプリを開く</button><p class="pwnote">まだご購入でない方は → <a class="pwlink" href="https://spc-jp.github.io/jyoho-mamoru/" target="_blank">こちらから購入</a></p></div></div>
+<div id="trialOverlay">
+    <div class="trial-box">
+        <span class="trial-icon">🔐</span>
+        <h2>情報まもるくん</h2>
+        <p class="tb-sub">無料体験（3回）が終了しました。<br>引き続きご利用には月額プランへのご登録が必要です。</p>
+        <a class="tb-stripe-btn" href="https://buy.stripe.com/dRm7sK9uO3MVgtpf3mcV20j" target="_blank">
+            🔒 安全なStripeで購入する（月額2,980円）
+        </a>
+        <div class="tb-divider">すでにパスワードをお持ちの方</div>
+        <div class="tb-input-wrap">
+            <input type="password" id="tbPwInput" placeholder="パスワードを入力" maxlength="30">
+            <button class="tb-eye" onclick="tbToggle()">👁️</button>
+        </div>
+        <div class="tb-err-msg" id="tbErrMsg"></div>
+        <button class="tb-pw-btn" id="tbPwBtn" onclick="tbVerify()">入室してアプリを開始する</button>
+        <p class="tb-note">← 戻る場合は <a href="#" onclick="tbClose()" style="color:#5b8bd9;">こちら</a></p>
+    </div>
+</div>
+
 </body>
 </html>
